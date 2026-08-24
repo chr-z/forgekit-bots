@@ -40,7 +40,7 @@ describe("t", () => {
   });
 
   it("leaves unknown placeholders untouched", () => {
-    expect(t({ en: { x: "{a} {b}" } }, "en", "x", { a: 1 })).toBe("1 {b}");
+    expect(t({ en: { x: "{a} {b}" }, "pt-BR": { x: "{a} {b}" } }, "en", "x", { a: 1 })).toBe("1 {b}");
   });
 });
 

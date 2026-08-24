@@ -69,7 +69,14 @@ built extractively from the caption timestamp index — never fabricated.
 
 - `curl https://<worker>.workers.dev/` → plain-text banner (worker is up)
 - Send `/start` in Telegram → localized reply
-- CI must be green before every push (`npm test`, 78+ tests)
+- CI must be green before every push (`npm test`, 80+ tests; `tsc -p tsconfig.base.json --noEmit` clean)
+
+## 7. YouTube policy (ClipGrab)
+
+ClipGrab ships **without** YouTube. The public Cobalt instance forbids commercial use,
+and self-hosting needs ffmpeg (no VMs by policy). Documented future paths: Deno Deploy
+free tier + youtube.js, or a Cobalt instance partnership. Do not wire YouTube into the
+bot until one of those exists.
 
 ## Rollback
 

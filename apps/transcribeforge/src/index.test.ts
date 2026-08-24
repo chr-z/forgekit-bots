@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pickAudioTarget, renderOutputs } from "./index";
-import type { TgUpdate } from "@forgekit/app-shared/botapi";
+import type { TgUpdate } from "@forgekit/app-shared";
 
 function updateWith(media: Record<string, unknown>): TgUpdate {
   return {
