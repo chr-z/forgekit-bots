@@ -11,10 +11,9 @@
 import { spendCredits } from "@forgekit/credits";
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
-import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
-import { parseUpdate } from "@forgekit/app-shared/updates";
-import { toSrt, toTxt, toVtt, wordsToSegments, type Segment } from "./formatters";
-import { transcribeAudio, type WhisperResponse } from "./whisper";
+import { BotApi, type TgUpdate, parseUpdate } from "@forgekit/app-shared";
+import { toSrt, toTxt, toVtt, type Segment } from "./formatters";
+import { transcribeAudio, wordsToSegments, type WhisperResponse } from "./whisper";
 
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -92,12 +91,13 @@ async function telegramFileUrl(token: string, fileId: string): Promise<string> {
 
 /** Format a finished transcript into the requested output kind. */
 export function renderOutputs(resp: WhisperResponse): { txt: string; srt: string; vtt: string } {
-  let segments: Segment[] = [];
-  if (resp.words?.length) {
-    segments = wordsToSegments(resp.words);
-  }
+  const segments: Segment[] = resp.words?.length
+    ? wordsToSegments(resp.words)
+    : resp.text
+      ? [{ start: 0, end: 1, text: resp.text }]
+      : [];
   return {
-    txt: toTxt(segments.length ? segments : [{ start: 0, end: 1, text: resp.text ?? "" }]),
+    txt: toTxt(segments),
     srt: toSrt(segments),
     vtt: toVtt(segments),
   };
@@ -114,7 +114,7 @@ export default {
     const update = (await request.json()) as TgUpdate;
     const route = parseUpdate(update);
     if (route.kind !== "command") return new Response("ok");
-    const { command, chatId, user } = route;
+    const { command, chatId, user } = route.ctx;
     const locale = parseLocale(user.language_code);
     const bot = new BotApi(env.TELEGRAM_BOT_TOKEN);
 
