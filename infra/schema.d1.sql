@@ -65,3 +65,27 @@ CREATE TABLE IF NOT EXISTS dm_chunks (
   text   TEXT NOT NULL,
   PRIMARY KEY (doc_id, n)
 );
+
+-- VoiceClone Alerts: channels where the bot is admin, one row per watch target.
+-- chat_id = Telegram chat id (-100...); owner_id = tg_user_id who registered it.
+-- title = chat title AT REGISTRATION TIME — display only; the live id is chat_id.
+-- Ownership proof happens at /addchannel time via getChatMember(bot). After
+-- registration the bot keeps receiving channel_post updates until removed.
+CREATE TABLE IF NOT EXISTS vc_channels (
+  chat_id   INTEGER PRIMARY KEY,
+  owner_id  INTEGER NOT NULL REFERENCES users(tg_user_id),
+  title     TEXT NOT NULL DEFAULT '',
+  added_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_vc_channels_owner ON vc_channels(owner_id);
+
+-- VoiceClone Alerts: watch keywords per channel. Matching is lexical and
+-- accent/case-insensitive (apps/voiceclone/src/matcher.ts).
+CREATE TABLE IF NOT EXISTS vc_terms (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id    INTEGER NOT NULL REFERENCES vc_channels(chat_id) ON DELETE CASCADE,
+  term       TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (chat_id, term)
+);
+CREATE INDEX IF NOT EXISTS idx_vc_terms_chat ON vc_terms(chat_id);
