@@ -8,7 +8,7 @@
 
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
-import { reviewPreCheckout, type StarProduct } from "@forgekit/stars";
+import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { BotApi, type TgUpdate, parseUpdate, type CommandContext } from "@forgekit/app-shared";
 
 import { fetchProfile, renderReport } from "./profile";
@@ -18,6 +18,7 @@ export interface Env {
   TELEGRAM_BOT_TOKEN: string;
   WEBHOOK_SECRET: string;
   KV: KVNamespace;
+  DB: D1Database;
 }
 
 const FREE_DAILY = 5;
@@ -71,6 +72,23 @@ export default {
       const bot = new BotApi(env.TELEGRAM_BOT_TOKEN);
       const review = reviewPreCheckout({ invoice_payload: route.payload }, INSTATOOLKIT_CATALOG);
       await bot.answerPreCheckoutQuery(route.queryId, review.ok, review.errorMessage);
+      return new Response("ok");
+    }
+    if (route.kind === "successful_payment") {
+      // Idempotent by telegram_payment_charge_id (star_payments PK).
+      if (route.ctx.user) {
+        await fulfillSuccessfulPayment(
+          env.DB,
+          { ...route.payment, from: { id: route.ctx.user.id } },
+          INSTATOOLKIT_CATALOG,
+        );
+        await new BotApi(env.TELEGRAM_BOT_TOKEN).sendMessage(
+          route.ctx.chatId,
+          route.payment.invoice_payload.startsWith("sub:")
+            ? "InstaToolkit Pro active — unlimited for 30 days. Thanks!"
+            : "Payment confirmed. Thanks!",
+        );
+      }
       return new Response("ok");
     }
     if (route.kind !== "command") return new Response("ok");

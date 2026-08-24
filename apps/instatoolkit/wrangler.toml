@@ -3,4 +3,5 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 
 kv_namespaces = [{ binding = "KV", id = "SET_AFTER_CREATION" }]
+d1_databases = [{ binding = "DB", database_name = "forgekit", database_id = "SET_AFTER_CREATION" }]
 # secrets: TELEGRAM_BOT_TOKEN, WEBHOOK_SECRET
