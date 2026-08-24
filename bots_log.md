@@ -257,3 +257,24 @@ nenhuma lacuna encontrada):
 - Decisão: nenhum código novo — construir de novo duplicaria trabalho dos
   ticks anteriores. Próximo passo da frota segue sendo deploy real
   (bloqueio: wrangler login interativo) ou ONDA 3.
+
+## 2026-08-24 ~12:55 UTC-3 — worker ONDA 2 (tick): auditoria independente #3 — nada a construir
+
+- Guardrail do zero: clone fresco, npm ci limpo, suíte local **201/201 verde**
+  (25 arquivos), CI remota success nos 3 runs mais recentes do main
+  (32743798725, 32743686067, 32741154926).
+- Bots 4-6 re-auditados contra o prompt deste tick:
+  - SummarizeTube: youtube.ts puro JS + [ai] binding, FREE_DAILY_LIMIT=3/dia,
+    Pro priceInStars=150 (=R$15/mo). Conforme.
+  - DocuMind: pdf/ingest/rag próprios (RAG keyword-scoring zero-custo),
+    Free 2 docs + 10 perguntas, Pro 300★ (=R$25/mo) + pack 150★. Conforme.
+  - VoiceClone: escopo conservador confirmado (webhook channel_post de canais
+    onde o bot é admin; cron */15 só drena retry queue), Free 1 canal+1 termo,
+    Pro 20 termos. Schema vc_* no infra/schema.d1.sql.
+- **Achado novo (único desvio do roadmap)**: VoiceClone Pro está 200★, mas o
+  roadmap fixa R$9/mo (~90★ pela convenção da frota, 10★≈R$1). Não alterado
+  neste tick — mudança de preço é decisão de gestão (regra: preço nunca muda
+  sem relatório justificando); registrado como pendência para o dono/Yui-gestão.
+- Decisão: nenhum código novo — construir de novo duplicaria os 3 ticks
+  anteriores que já entregaram a Onda 2 completa. Próximo passo real segue:
+  deploy (bloqueio humano: wrangler login interativo) ou ONDA 3.
