@@ -314,3 +314,22 @@ nenhuma lacuna encontrada):
   decisão de gestão.
 - Decisão: nenhum código novo; ONDA 2 permanece fechada. Próximo passo
   real: deploy (bloqueio humano) ou ONDA 3 (InvoiceForge et al.).
+
+## 2026-08-24 ~14:05 UTC-3 — worker tick ONDA 2: auditoria #6 — diretiva serverless ClipGrab re-verificada
+
+- Gatilho: re-prompt do dono reforçando arquitetura serverless pura (sem VM Oracle).
+- Guardrail: pull --ff-only (já em 1fa5892, synced), suíte local **201/201 verde**
+  (25 arquivos), CI success no HEAD (run 32753069473).
+- Diretiva conferida item a item contra o código atual — TUDO já implementado:
+  (a) Cobalt self-hosted descartado e documentado (resolvers/youtube.ts é stub
+  com recusa honesta "coming soon"; nenhuma chamada a instância pública);
+  (b) TikTok = hydration web PRIMARY + feed API watermark-free como fallback
+  atrás de cooldown KV compartilhado (600s); (c) IG = embed JSON público,
+  resiliente a payload crawler-only; (d) resposta ao usuário = LINK DIRETO
+  (zero storage/banda); (e) roadmap Deno Deploy + youtube.js documentado.
+- READMEs coerentes: apps/clipgrab/README.md e README.md da raiz refletem
+  TikTok+Instagram agora / YouTube pendente de infra própria.
+- Único ajuste: BOTS_EMPIRE.md (saas_factory) ainda citava suíte 192/192 →
+  atualizado para 201/201.
+- Pendências inalteradas: deploy real aguarda wrangler login interativo
+  (humano); VoiceClone Pro 200★ vs R$9/mo segue decisão de gestão.
