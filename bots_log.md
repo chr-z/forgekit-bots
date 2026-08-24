@@ -377,3 +377,23 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   infra/schema.d1.sql, deploy.md, CI — todos presentes no main.
 - Guardrail: pull --ff-only (1 commit novo de docs de outro worker), Vitest
   **201/201 verde** (25 arquivos), tsc --noEmit limpo no apps/clipgrab.
+
+## 2026-08-24 ~15:45 UTC-3 - worker tick ONDA 2: auditoria #9 - nada a construir
+
+- Gatilho: re-prompt padrao da onda 2 ("construa UM bot"). Guardrail cumprido:
+  clone fresco em main (6df354d, sincronizado com origin via fetch), suite local
+  **201/201 verde** (25 arquivos), CI success no HEAD (run 32759166830).
+- Auditoria substantiva deste tick (alem do log dos ticks anteriores):
+  - SummarizeTube: youtube.ts = extracao pura JS de legendas (watch page ->
+    ytInitialPlayerResponse brace-matched -> timedtext json3/XML), Workers AI
+    llama-3.1-8b-instruct, FREE_DAILY_LIMIT=3, Pro sub+pack catalog Stars.
+  - DocuMind: FREE_DOC_LIMIT=2 / FREE_QUESTION_LIMIT=10, Pro 300 estrelas,
+    pdf-parse no Worker, Vectorize descartada de proposito (exige plano pago).
+  - VoiceClone: FREE_TERMS=1 confirmado no codigo; escopo conservador
+    admin-only verificado (getChatMember exige administrator|creator antes de
+    registrar canal); cron */15 so drena fila de retry, nunca polla getUpdates.
+  - wrangler.toml dos tres com bindings corretos ([ai] so onde usado);
+    tsc --noEmit limpo nos 3 apps; 283 asserts nos testes dos apps onda 2.
+- Decisao: nenhum codigo novo - nona auditoria confirma ONDA 2 fechada e
+  core-ready. Bloqueio real continua sendo deploy (wrangler login interativo,
+  humano). Proximo passo util: ONDA 3 ou deploy quando o dono puder logar.
