@@ -174,3 +174,25 @@ nenhuma lacuna encontrada):
   restam menções de limitação/roadmap (corretas).
 - Guardrail: pull --ff-only (2 commits novos de outro worker), suíte local
   **192/192 verde** (25 arquivos), tsc --noEmit limpo no apps/clipgrab.
+
+## 2026-08-24 ~10:35 UTC-3 — worker ONDA 2 (tick): verificação de guardrail — nada a construir
+
+- Guardrail satisfeito de forma superlativa: além da Onda 1 (TranscribeForge,
+  ClipGrab, InstaToolkit), a Onda 2 INTEIRA já está no main por ticks anteriores:
+  SummarizeTube, DocuMind e VoiceClone Alerts completos.
+- Verificação ponto a ponto deste tick:
+  - apps/summarizetube: youtube.ts puro JS sem binários (watch page →
+    ytInitialPlayerResponse → caption track json3/XML via fetch injetável),
+    summarizer.ts + Workers AI [ai] binding, freeLimit diário. 3 arquivos de teste.
+  - apps/documind: ingest/pdf/rag/index com testes; decisão documentada em rag.ts —
+    RAG keyword-scoring determinístico em vez de Vectorize ("Vectorize free tier
+    needs a paid-tier Workers plan in practice"), zero custo marginal por construção;
+    AI binding opcional com fallback extractive. Alinha ao princípio nº1 do dono
+    (free tier cabe no free tier da infra).
+  - apps/voiceclone: matcher/store/alerts/core + cron trigger */15 só para drenar
+    fila de retry de alerts (nunca polling — webhook registrado, getUpdates=409);
+    Free: 1 canal+1 termo | Pro R$9/mo: 5 canais+20 termos.
+  - Suíte local: **192/192 verde** (25 arquivos), tsc --noEmit limpo.
+  - CI remota: últimos 5 runs success no main.
+- Decisão: nenhum código novo neste tick — construir de novo seria duplicar
+  trabalho dos workers anteriores. Tick registrado e pushed.
