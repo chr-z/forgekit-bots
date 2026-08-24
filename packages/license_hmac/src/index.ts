@@ -54,7 +54,9 @@ export async function issueLicense(
   if (!secret) throw new Error("license secret is required");
   const body = b64urlEncode(encoder.encode(JSON.stringify(payload)));
   const sig = await hmac(secret, `${payload.v}.${body}`);
-  return `FORGE-${payload.v}-${body}-${sig}`;
+  // Separator MUST be "." — base64url's alphabet already contains "-" and "_",
+  // so dash-delimited keys are ambiguous to parse.
+  return `FORGE.${payload.v}.${body}.${sig}`;
 }
 
 export type VerifyResult =
@@ -66,9 +68,13 @@ export async function verifyLicense(
   secret: string,
   now: Date = new Date(),
 ): Promise<VerifyResult> {
-  const parts = key.trim().split("-");
+  // Format: FORGE.<version>.<body>.<sig> — dots are unambiguous because
+  // base64url never emits them.
+  const parts = key.trim().split(".");
   if (parts.length !== 4 || parts[0] !== "FORGE") return { ok: false, reason: "malformed" };
-  const [, versionRaw, body, sig] = parts;
+  const versionRaw = parts[1]!;
+  const body = parts[2]!;
+  const sig = parts[3]!;
   const version = Number(versionRaw);
   if (!Number.isInteger(version)) return { ok: false, reason: "malformed" };
 

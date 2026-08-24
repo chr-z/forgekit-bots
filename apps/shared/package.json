@@ -1,0 +1,16 @@
+{
+  "name": "@forgekit/app-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/botapi.ts",
+  "types": "./src/botapi.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@forgekit/auth": "*",
+    "@forgekit/i18n": "*",
+    "@forgekit/stars": "*"
+  }
+}

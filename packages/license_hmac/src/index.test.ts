@@ -18,7 +18,7 @@ const expired: LicensePayload = {
 describe("license round-trip", () => {
   it("issues and verifies a perpetual license", async () => {
     const key = await issueLicense(perpetual, SECRET);
-    expect(key).toMatch(/^FORGE-1-[A-Za-z0-9_-]+-[A-Za-z0-9_-]+$/);
+    expect(key).toMatch(/^FORGE\.1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
     const res = await verifyLicense(key, SECRET);
     expect(res).toEqual({ ok: true, payload: perpetual });
   });
@@ -33,11 +33,11 @@ describe("license round-trip", () => {
 
   it("rejects tampered payloads and wrong secrets", async () => {
     const key = await issueLicense(perpetual, SECRET);
-    const [head, ver, body, sig] = key.split("-");
+    const [head, ver, body, sig] = key.split(".");
 
     // flip a char inside the payload body -> signature mismatch
     const tamperedBody = (body[0] === "A" ? "B" : "A") + body.slice(1);
-    const tampered = `${head}-${ver}-${tamperedBody}-${sig}`;
+    const tampered = `${head}.${ver}.${tamperedBody}.${sig}`;
     expect((await verifyLicense(tampered, SECRET)).reason).toBe("bad_signature");
 
     // right key, wrong secret
