@@ -416,3 +416,26 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Decisao: decima auditoria consecutiva confirma que o estado do main ja cumpre
   100% da diretiva serverless. Nenhum codigo novo. Bloqueio real segue sendo
   deploy (wrangler login interativo, humano). Proximo passo util: ONDA 3 ou deploy.
+
+## 2026-08-24 ~17:50 UTC-3 - worker tick ONDA 2: auditoria #11 - docs: README do SummarizeTube
+
+- Gatilho: diretiva ONDA 2 reenviada (Bots 4-6). Verificacao substantiva no main
+  (6cdf102): os tres apps da ONDA 2 estao completos e testados -
+  summarizetube = youtube.ts puro JS (brace-match do ytInitialPlayerResponse,
+  timedtext json3/legacy XML) + Workers AI llama-3.1-8b-instruct map-reduce com
+  citacoes [mm:ss] e deep mode Pro (200 Stars/30d, free 3/dia);
+  documind = extrator PDF TS puro (DecompressionStream FlateDecode, Tj/TJ) +
+  RAG keyword-scored honesto (Vectorize exige paid plan na pratica - decisao
+  documentada no codigo e README); voiceclone = escopo conservador (so canal com
+  bot admin, webhook como ingestao pois getUpdates retorna 409 com webhook,
+  cron apenas drena retry queue de alertas; free 1 canal+1 termo / pro 5+20).
+- Guardrail: pull --ff-only para 6cdf102, Vitest **201/201 verde** (25 arquivos).
+- Unica lacuna real encontrada: apps/summarizetube era o UNICO app da frota sem
+  README (clipgrab/documind/instatoolkit/transcribeforge/voiceclone ja tinham).
+  Criado apps/summarizetube/README.md: pipeline sem binaries, limitacoes honestas
+  (video sem legenda e recusado, superficie do YouTube muda sem aviso), pricing
+  Free 3 resumos/dia | Pro 200 Stars/30d + pacote 150 Stars/100 resumos.
+- Decisao: nenhuma funcionalidade nova necessaria - decima primeira auditoria
+  confirma ONDA 2 100% construida. Tick docs-only. Bloqueio real inalterado:
+  deploy aguarda wrangler login interativo (humano). Proximo passo util:
+  ONDA 3 ou deploy quando o dono puder logar.
