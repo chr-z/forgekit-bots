@@ -21,7 +21,7 @@ npx wrangler d1 create forgekit
 npx wrangler d1 execute forgekit --remote --file infra/schema.d1.sql
 
 # One KV namespace per bot (quotas are isolated on purpose)
-for ns in clipgrab transcribeforge instatoolkit summarizetube documind; do
+for ns in clipgrab transcribeforge instatoolkit summarizetube documind voiceclone; do
   npx wrangler kv namespace create "$ns"
 done
 ```
@@ -40,6 +40,19 @@ then register your product list from each app's catalog.
 A user who pays receives Pro/credits even if the confirmation message fails; fulfillment
 happens BEFORE the reply. Webhook registration must include `message` updates (default)
 — no extra `allowed_updates` entry is needed for payments.
+
+**VoiceClone Alerts exception:** its webhook registration MUST include
+`channel_post` so admin-channel posts reach the worker:
+
+```bash
+curl "https://api.telegram.org/bot$TOKEN/setWebhook" \
+  --data-urlencode "url=https://voiceclone-bot.<subdomain>.workers.dev/" \
+  --data-urlencode "secret_token=$WEBHOOK_SECRET" \
+  --data-urlencode 'allowed_updates=["message","pre_checkout_query","channel_post"]'
+```
+
+Its `[triggers]` cron (`*/15`) only drains the KV alert-retry queue; it never
+calls getUpdates (409 Conflict against a registered webhook).
 
 ## 3. Secrets & deploy
 

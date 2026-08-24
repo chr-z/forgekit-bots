@@ -9,6 +9,7 @@ Fleet of serverless **Telegram bots** on the Cloudflare Workers free tier — ze
 | [InstaToolkit](apps/instatoolkit/) | Instagram utilities: public profile snapshot, hashtag generator | core ready |
 | [SummarizeTube](apps/summarizetube/) | YouTube link → structured summary (TLDR + key points with timestamps) via caption extraction + Workers AI | core ready |
 | [DocuMind](apps/documind/) | PDF/text → cited Q&A ("ChatGPT dos seus documentos"): pure-TS extraction + passage retrieval + Workers AI | core ready |
+| [VoiceClone Alerts](apps/voiceclone/) | Keyword alerts for channels where the bot is admin: webhook-driven `channel_post` scan + accent-insensitive matcher + retry queue | core ready |
 
 Shared foundation in [`packages/`](packages/): i18n (EN/pt-BR), rate limiting (KV, with
 `peek()` for /status-style commands), auth (Telegram WebApp signature verification),
@@ -27,6 +28,7 @@ credits ledger (D1), Stars payment handling (pre-checkout review + idempotent
 - **ClipGrab: YouTube not supported yet.** Public Cobalt instances prohibit commercial use, and self-hosting requires ffmpeg/binaries unavailable on Workers. YouTube downloads ship only when we have our own extraction infrastructure. See [ClipGrab README](apps/clipgrab/README.md).
 - **SummarizeTube depends on YouTube's caption surface**, which changes without notice. Extraction degrades to an honest "no usable captions" reply instead of guessing; breakage is repaired reactively in the next tick.
 - Platform resolvers are inherently fragile (platforms change endpoints without notice). Each one is isolated in its own module with its own tests so breakage never leaks across apps.
+- **VoiceClone Alerts watches only channels where the bot is an admin** — by design. Public-channel monitoring without admin access would need MTProto user-API scraping, a Telegram ToS risk the owner explicitly rejected.
 
 ## Development
 
