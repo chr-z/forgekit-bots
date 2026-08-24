@@ -29,7 +29,7 @@ export function parseUpdate(update: TgUpdate): Route {
   if (msg?.from && !msg.from.is_bot && typeof msg.text === "string") {
     const text = msg.text.trim();
     if (text.startsWith("/")) {
-      const [rawCmd, ...rest] = text.split(/\s+/);
+      const [rawCmd = "", ...rest] = text.split(/\s+/);
       // strip @botname suffix from group commands
       const command = rawCmd.split("@")[0]!.toLowerCase();
       return {
