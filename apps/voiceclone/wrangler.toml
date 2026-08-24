@@ -1,0 +1,16 @@
+name = "voiceclone-bot"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Cron exists ONLY to drain the alert-retry queue (failed first sends).
+# It never polls Telegram: with a webhook registered, getUpdates returns 409.
+[triggers]
+crons = ["*/15 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "forgekit"
+database_id = "SET_AFTER_CREATION"
+
+kv_namespaces = [{ binding = "KV", id = "SET_AFTER_CREATION" }]
+# secrets: TELEGRAM_BOT_TOKEN, WEBHOOK_SECRET
