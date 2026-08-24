@@ -278,3 +278,25 @@ nenhuma lacuna encontrada):
 - Decisão: nenhum código novo — construir de novo duplicaria os 3 ticks
   anteriores que já entregaram a Onda 2 completa. Próximo passo real segue:
   deploy (bloqueio humano: wrangler login interativo) ou ONDA 3.
+
+## 2026-08-24 ~13:15 UTC-3 — worker tick: re-audit da diretiva ClipGrab-serverless — nada a construir
+
+- Guardrail: pull --ff-only sem novidades (main já sincronizado), suíte local
+  **201/201 verde** (25 arquivos), CI remota success nos 5 runs recentes do main
+  (mais recente 32747352189, posterior ao tick que executou a diretiva).
+- Diretiva do dono re-verificada ponto a ponto — conforme em tudo:
+  - ClipGrab 100% serverless puro, zero VM Oracle: resolvers TS puros com fetch
+    nativo (tiktok.ts web-hydration PRIMARY + feed API w/ KV cooldown;
+    instagram.ts embed JSON, incl. fix crawler-only payload 762117a);
+    resposta = LINK DIRETO (zero storage/banda nossos).
+  - YouTube FORA do bot: youtube.ts stub honesto "coming soon"; README do app
+    documenta ToS do Cobalt público + roadmap Deno Deploy/youtube.js ou parceria.
+  - BOTS_EMPIRE.md (gestão, saas_factory) e README do app refletem a decisão.
+  - Core packages (credits/stars/auth/ratelimit/i18n/license_hmac) completos c/
+    testes; TranscribeForge ([ai] Whisper), InstaToolkit, infra/schema.d1.sql,
+    deploy.md ("No VMs anywhere"), CI — todos no main.
+- Pendências inalteradas (fora do escopo deste prompt): deploy real aguarda
+  wrangler login interativo; VoiceClone Pro 200★ vs R$9/mo do roadmap segue
+  como decisão de gestão pendente.
+- Decisão: nenhum código novo — quarta auditoria independente consecutiva
+  confirma frota core-ready. Próximos passos reais: deploy (humano) ou ONDA 3.
