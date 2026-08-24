@@ -10,9 +10,10 @@ Fleet of serverless **Telegram bots** on the Cloudflare Workers free tier — ze
 | [SummarizeTube](apps/summarizetube/) | YouTube link → structured summary (TLDR + key points with timestamps) via caption extraction + Workers AI | core ready |
 | [DocuMind](apps/documind/) | PDF/text → cited Q&A ("ChatGPT dos seus documentos"): pure-TS extraction + passage retrieval + Workers AI | core ready |
 
-Shared foundation in [`packages/`](packages/): i18n (EN/pt-BR), rate limiting (KV),
-auth (Telegram WebApp signature verification), credits ledger (D1), Stars payment
-webhook handling and HMAC license signing.
+Shared foundation in [`packages/`](packages/): i18n (EN/pt-BR), rate limiting (KV, with
+`peek()` for /status-style commands), auth (Telegram WebApp signature verification),
+credits ledger (D1), Stars payment handling (pre-checkout review + idempotent
+`successful_payment` fulfillment in every worker) and HMAC license signing.
 
 ## Architecture
 

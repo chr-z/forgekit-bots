@@ -16,7 +16,7 @@ import { verifyUpdateSignature } from "@forgekit/auth";
 import { grantCredits, spendCredits } from "@forgekit/credits";
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
-import { reviewPreCheckout, type StarProduct } from "@forgekit/stars";
+import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { parseUpdate } from "@forgekit/app-shared/updates";
 
@@ -84,6 +84,8 @@ const MESSAGES = {
       "Free limit reached ({limit} questions / {days} days).\nResets soon — or add 150 questions with /buy (1 credit each).",
     buy_intro:
       "DocuMind Pro: unlimited documents + 500 questions — {stars} Stars / 30 days.\nCredit pack: {pack_stars} Stars = 150 extra questions (never expires).",
+    pro_active: "DocuMind Pro active — unlimited documents and questions for 30 days. Thanks!",
+    pack_active: "Payment confirmed — 150 extra questions added. Thanks!",
     balance: "\n\nCredit used — balance left: {balance}.",
   },
   "pt-BR": {
@@ -112,6 +114,8 @@ const MESSAGES = {
       "Limite grátis atingido ({limit} perguntas / {days} dias).\nRenova em breve — ou adicione 150 perguntas com /buy (1 crédito cada).",
     buy_intro:
       "DocuMind Pro: documentos ilimitados + 500 perguntas — {stars} Stars / 30 dias.\nPacote: {pack_stars} Stars = 150 perguntas extras (não expira).",
+    pro_active: "DocuMind Pro ativo — documentos e perguntas ilimitados por 30 dias. Valeu!",
+    pack_active: "Pagamento confirmado — 150 perguntas extras adicionadas. Valeu!",
     balance: "\n\nCrédito usado — saldo restante: {balance}.",
   },
 };
@@ -176,6 +180,23 @@ export default {
     if (route.kind === "pre_checkout") {
       const review = reviewPreCheckout({ invoice_payload: route.payload }, DOCUMIND_CATALOG);
       await bot.answerPreCheckoutQuery(route.queryId, review.ok, review.errorMessage);
+      return new Response("ok");
+    }
+
+    if (route.kind === "successful_payment") {
+      // Idempotent by telegram_payment_charge_id (star_payments PK).
+      if (route.ctx.user) {
+        await fulfillSuccessfulPayment(
+          env.DB,
+          { ...route.payment, from: { id: route.ctx.user.id } },
+          DOCUMIND_CATALOG,
+        );
+        const isSub = route.payment.invoice_payload.startsWith("sub:");
+        await bot.sendMessage(
+          route.ctx.chatId,
+          isSub ? M("pro_active") : t(MESSAGES, parseLocale(route.ctx.user.language_code), "pack_active"),
+        );
+      }
       return new Response("ok");
     }
 

@@ -42,4 +42,20 @@ describe("RateLimiter", () => {
     expect((await rl.consume("instatoolkit", "user:1", false)).allowed).toBe(true);
     expect((await rl.consume("clipgrab", "user:1", false)).allowed).toBe(false);
   });
+
+  it("peek reads current usage without consuming or writing", async () => {
+    const store: Store = new Map();
+    const kv = fakeKv(store);
+    const rl = new RateLimiter(kv, { freeLimit: 3, windowSeconds: DAY });
+    expect(await rl.peek("clipgrab", "user:9")).toEqual({ used: 0, limit: 3 });
+    await rl.consume("clipgrab", "user:9", false);
+    await rl.consume("clipgrab", "user:9", false);
+    expect(await rl.peek("clipgrab", "user:9")).toEqual({ used: 2, limit: 3 });
+    // peek must not have advanced the counter
+    const ops = store.size;
+    await rl.peek("clipgrab", "user:9");
+    expect(store.size).toBe(ops);
+    // and the next consume still lands on used=3 (allowed), not 4
+    expect(await rl.consume("clipgrab", "user:9", false)).toMatchObject({ allowed: true, used: 3 });
+  });
 });

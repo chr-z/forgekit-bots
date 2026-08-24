@@ -34,6 +34,52 @@ describe("parseUpdate", () => {
     expect(r).toMatchObject({ kind: "pre_checkout", queryId: "pcq1", payload: "pack:r10" });
   });
 
+  it("routes message.successful_payment with payer + charge id", () => {
+    const r = parseUpdate({
+      update_id: 4,
+      message: {
+        message_id: 11,
+        from,
+        chat,
+        successful_payment: {
+          currency: "XTR",
+          total_amount: 150,
+          invoice_payload: "pack:c100",
+          telegram_payment_charge_id: "chg_abc123",
+        },
+      },
+    } as unknown as TgUpdate);
+    expect(r.kind).toBe("successful_payment");
+    if (r.kind === "successful_payment") {
+      expect(r.ctx).toMatchObject({ chatId: 42 });
+      expect(r.payment).toMatchObject({
+        invoice_payload: "pack:c100",
+        telegram_payment_charge_id: "chg_abc123",
+        total_amount: 150,
+      });
+    }
+  });
+
+  it("a successful payment is not mistaken for a command", () => {
+    const r = parseUpdate({
+      update_id: 5,
+      message: {
+        message_id: 12,
+        from,
+        chat,
+        text: "/start",
+        successful_payment: {
+          currency: "XTR",
+          total_amount: 300,
+          invoice_payload: "sub:clipgrab-pro",
+          telegram_payment_charge_id: "chg_def456",
+        },
+      },
+    } as unknown as TgUpdate);
+    // payment wins over the text field — fulfillment must not be skipped
+    expect(r.kind).toBe("successful_payment");
+  });
+
   it("ignores bots, non-text messages and plain text", () => {
     expect(parseUpdate({ update_id: 3 } as TgUpdate).kind).toBe("unhandled");
     expect(parseUpdate(msgUpdate("hello there")).kind).toBe("unhandled");

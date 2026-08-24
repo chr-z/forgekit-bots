@@ -11,6 +11,7 @@
 import { spendCredits } from "@forgekit/credits";
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
+import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { BotApi, type TgUpdate, parseUpdate } from "@forgekit/app-shared";
 import { toSrt, toTxt, toVtt, type Segment } from "./formatters";
 import { transcribeAudio, wordsToSegments, type WhisperResponse } from "./whisper";
@@ -33,11 +34,24 @@ const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 
 export const MODEL_FREE = "@cf/openai/whisper";
 
+/** Stars catalog: credit packs buy more minutes (1 credit = 1 minute). */
+export const TRANSCRIBEFORGE_CATALOG: StarProduct[] = [
+  {
+    productId: "pack:t300",
+    title: "300 extra minutes",
+    description: "Credit pack, never expires. 1 credit = 1 minute of audio.",
+    priceInStars: 150,
+    kind: "credits",
+    creditsAmount: 300,
+  },
+];
+
 const MESSAGES = {
   en: {
     start: "Send me an audio or video file (up to ~20MB) and I'll transcribe it.\n\nFree: 10 minutes/month, plain text.\n/buy for more minutes and SRT/VTT subtitles.",
     no_file: "Send an audio/video FILE (attachment), not just text.",
     quota_exceeded: "Monthly free minutes used up ({minutes}/mo). /buy credits to keep going.",
+    payment_ok: "Payment confirmed — {minutes} extra minutes added. Thanks!",
     transcribing: "Transcribing ({seconds}s of audio)… this can take a moment.",
     done_text: "Transcript:\n\n{excerpt}",
     too_short_or_empty: "I couldn't hear anything in that file.",
@@ -48,6 +62,7 @@ const MESSAGES = {
     start: "Me manda um arquivo de áudio ou vídeo (até ~20MB) que eu transcrevo.\n\nGrátis: 10 minutos/mês, texto simples.\n/buy para mais minutos e legendas SRT/VTT.",
     no_file: "Manda um ARQUIVO de áudio/vídeo (anexo), não só texto.",
     quota_exceeded: "Minutos grátis do mês acabaram ({minutes}/mês). Compre créditos com /buy para continuar.",
+    payment_ok: "Pagamento confirmado — {minutes} minutos extras adicionados. Valeu!",
     transcribing: "Transcrevendo ({seconds}s de áudio)… pode demorar um pouco.",
     done_text: "Transcrição:\n\n{excerpt}",
     too_short_or_empty: "Não consegui escutar nada nesse arquivo.",
@@ -113,6 +128,30 @@ export default {
 
     const update = (await request.json()) as TgUpdate;
     const route = parseUpdate(update);
+
+    if (route.kind === "pre_checkout") {
+      const bot = new BotApi(env.TELEGRAM_BOT_TOKEN);
+      const review = reviewPreCheckout({ invoice_payload: route.payload }, TRANSCRIBEFORGE_CATALOG);
+      await bot.answerPreCheckoutQuery(route.queryId, review.ok, review.errorMessage);
+      return new Response("ok");
+    }
+    if (route.kind === "successful_payment") {
+      // Idempotent by telegram_payment_charge_id (star_payments PK).
+      if (route.ctx.user) {
+        await fulfillSuccessfulPayment(
+          env.DB,
+          { ...route.payment, from: { id: route.ctx.user.id } },
+          TRANSCRIBEFORGE_CATALOG,
+        );
+        await new BotApi(env.TELEGRAM_BOT_TOKEN).sendMessage(
+          route.ctx.chatId,
+          t(MESSAGES, parseLocale(route.ctx.user.language_code), "payment_ok", {
+            minutes: 300,
+          }),
+        );
+      }
+      return new Response("ok");
+    }
     if (route.kind !== "command") return new Response("ok");
     const { command, chatId, user } = route.ctx;
     const locale = parseLocale(user.language_code);

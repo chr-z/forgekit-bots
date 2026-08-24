@@ -1,5 +1,40 @@
 # Bots Log — registro de execução
 
+## 2026-08-24 — Tick 3: auditoria anti-false-done ClipGrab + buraco de pagamento fechado
+
+**Guardrail:** clone fresco → 147/147 verde, tsc limpo, CI success no main (run 32707401748).
+
+### Achado principal: pagamentos nunca eram creditados (toda a frota)
+`parseUpdate` ignorava `message.successful_payment` (o tipo nem existia:
+`successful_payment_message?: never`). O bot aprovava o pré-checkout e DEPOIS
+descartava o update de confirmação → usuário pagava em Stars e não recebia nada.
+Corrigido em camadas, um commit por módulo:
+1. `packages/ratelimit`: + `peek()` (lê uso da janela sem consumir) — testado.
+2. `apps/shared`: `TgUpdate.message.successful_payment` tipado; `parseUpdate`
+   roteia `{kind:"successful_payment", ctx, payment}` (pagamento vence texto
+   quando ambos presentes) — 2 testes novos.
+3. Todos os 5 workers: handler de fulfillment via `fulfillSuccessfulPayment`
+   (idempotente por charge id), confirmação ao usuário ANTES dependia de nada —
+   crédito/grante acontece primeiro; ClipGrab/DocuMind/SummarizeTube/TranscribeForge
+   com mensagem i18n. InstaToolkit ganhou binding `DB` no wrangler.toml.
+4. TranscribeForge ganhou catálogo Stars que não tinha (`pack:t300`, 150⭐ = 300 min).
+
+### ClipGrab conforme diretiva do dono (serverless puro, sem VM Oracle)
+Auditoria confirmou que a arquitetura nova já estava no repo: resolvers TS puros
+(TikTok feed-API + web hydration; IG embed), YouTube FORA (stub documentado com
+ToS do Cobalt público), roadmap Deno Deploy + youtube.js anotado. BOTS_EMPIRE.md
+(saas_factory) já refletia a decisão 2026-08-24. Nada a reconstruir — só lacunas:
+- `/status` era citado nas mensagens mas não existia → implementado (plataformas
+  suportadas, cota usada via peek, estado Pro).
+- README do app + README raiz + deploy.md atualizados (fluxo de pagamento
+  documentado ponta a ponta).
+
+### Testes
+147 → **150** (+3: peek, successful_payment routing, payment-not-command).
+Suite completa verde local; tsc --noEmit limpo.
+
+---
+
 ## 2026-08-24 — ONDA 2, tick 1 (worker wave2)
 
 **Guardrail:** ONDA 1 verificada antes de construir. Estado recebido: 82/83 testes,
