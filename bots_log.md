@@ -215,3 +215,23 @@ nenhuma lacuna encontrada):
   - CI remota: últimos 5 runs success no main.
 - Decisão: nenhum código novo neste tick — construir de novo seria duplicar
   trabalho dos workers anteriores. Tick registrado e pushed.
+
+## 2026-08-24 ~11:50 UTC-3 — worker ONDA 2 (tick): auditoria independente — nada a construir
+
+- Guardrail re-verificado do zero: clone fresco do main, npm install limpo,
+  suíte local **198/198 verde** (25 arquivos; +6 do hardening do ClipGrab),
+  CI remota success nos últimos 4 runs do main.
+- Bots 4-6 auditados ponto a ponto contra este prompt:
+  - SummarizeTube: youtube.ts puro JS (watch page -> ytInitialPlayerResponse ->
+    caption tracks), summarizer via [ai] binding, FREE_DAILY_LIMIT=3,
+    Pro priceInStars=150 (=R$15/mo) — 113 asserts.
+  - DocuMind: pdf.ts (zlib/TJ handling), ingest chunking, RAG keyword-scoring
+    zero-custo, Free 2 docs + 10 perguntas/30d, Pro 500 perguntas — 102 asserts.
+  - VoiceClone Alerts: escopo conservador (só canais onde o bot é admin,
+    webhook channel_post), cron */15 só drena retry queue, matcher
+    accent/case-insensitive — 103 asserts.
+- Bindings conferidos nos wrangler.toml ([ai]/D1/KV/cron), tabelas dm_*/vc_*
+  presentes em infra/schema.d1.sql, BOTS_EMPIRE.md local já marca fim da ONDA 2.
+- Decisão: nenhum código novo — construir de novo duplicaria trabalho dos
+  ticks anteriores. Próximo passo da frota segue sendo deploy real
+  (bloqueio: wrangler login interativo) ou ONDA 3.
