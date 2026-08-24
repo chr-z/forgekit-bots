@@ -95,7 +95,7 @@ export async function verifyLoginWidget(
   // - Login Widget redirect: flat id/first_name/username/photo_url fields
   try {
     if (userRaw) {
-      return { ...(JSON.parse(userRaw) as Omit<LoginWidgetUser, "auth_date">), authDate };
+      return { ...(JSON.parse(userRaw) as Omit<LoginWidgetUser, "auth_date">), auth_date: authDate };
     }
     const id = Number(fields["id"]);
     if (!id) return null;
@@ -104,7 +104,7 @@ export async function verifyLoginWidget(
       first_name: fields["first_name"],
       username: fields["username"],
       photo_url: fields["photo_url"],
-      authDate,
+      auth_date: authDate,
     };
   } catch {
     return null;

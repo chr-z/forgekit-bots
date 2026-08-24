@@ -33,7 +33,7 @@ describe("license round-trip", () => {
 
   it("rejects tampered payloads and wrong secrets", async () => {
     const key = await issueLicense(perpetual, SECRET);
-    const [head, ver, body, sig] = key.split(".");
+    const [head = "", ver = "", body = "", sig = ""] = key.split(".");
 
     // flip a char inside the payload body -> signature mismatch
     const tamperedBody = (body[0] === "A" ? "B" : "A") + body.slice(1);
