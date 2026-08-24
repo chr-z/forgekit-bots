@@ -46,3 +46,22 @@ CREATE TABLE IF NOT EXISTS usage_log (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_usage_bot_time ON usage_log(bot, created_at);
+
+-- DocuMind: document library (one row per indexed upload).
+CREATE TABLE IF NOT EXISTS dm_docs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  tg_user_id INTEGER NOT NULL,
+  title      TEXT NOT NULL,
+  n_pages    INTEGER NOT NULL DEFAULT 0,        -- content-stream units (approximate pagination)
+  n_chunks   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_dm_docs_user ON dm_docs(tg_user_id, created_at);
+
+-- DocuMind: numbered passage index; `n` is the citation id shown to users ([n]).
+CREATE TABLE IF NOT EXISTS dm_chunks (
+  doc_id INTEGER NOT NULL REFERENCES dm_docs(id) ON DELETE CASCADE,
+  n      INTEGER NOT NULL,
+  text   TEXT NOT NULL,
+  PRIMARY KEY (doc_id, n)
+);
