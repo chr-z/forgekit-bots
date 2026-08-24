@@ -479,3 +479,21 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   no HEAD 0cb01b5.
 - Decisao: decima terceira auditoria consecutiva — main ja cumpre 100% da
   diretiva. Nenhum codigo novo. Bloqueio real: deploy (wrangler login humano).
+
+## Auditoria #14 — ONDA 2 worker tick (24/08 19:40)
+- Diretiva: construir UM bot da ONDA 2 (SummarizeTube/DocuMind/VoiceClone).
+- Verificacao contra codigo real: os TRES ja existem completos no main.
+  * summarizetube: youtube.ts puro-JS (ytInitialPlayerResponse brace-match +
+    timedtext json3/XML), Workers AI resumo, FREE_DAILY_LIMIT=3, wrangler.toml
+    com [ai]+D1+KV; 116 asserts em 3 suites.
+  * documind: FREE_DOC_LIMIT=2/FREE_QUESTION_LIMIT=10 por janela, pdf.ts
+    (DecompressionStream), rag.ts keyword-RAG com citacoes [n] + fallback
+    extractive (Vectorize evitado de proposito: exige plano pago; doc no
+    header); successful_payment wired.
+  * voiceclone: escopo conservador (so canais onde o bot e admin; cron */15
+    SO drena fila de retry — nunca faz getUpdates, evita 409), matcher
+    acento/caixa-insensitivo whole-word, free 1 canal+1 termo / pro 5+20.
+- Guardrail: pull --ff-only (up to date), Vitest **201/201 verde** (25 arquivos),
+  CI success no HEAD d8a37f2.
+- Decisao: nada a construir — diretiva ja cumprida desde auditorias anteriores.
+  Nenhum codigo novo. Bloqueio real continua deploy (wrangler login humano).
