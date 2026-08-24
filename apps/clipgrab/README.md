@@ -18,6 +18,9 @@ Serverless on Cloudflare Workers — we never host the media, so zero storage/ba
   self-hosting needs ffmpeg/binaries (impossible on Workers), and we run no VM by policy.
   It ships only when we have our own extraction infrastructure. Every YouTube link gets
   a clear "coming soon" answer.
+  - *Roadmap:* Deno Deploy free tier + `youtube.js` (pure JS, progressive stream, no
+    ffmpeg) is the documented path for a future YouTube resolver — or a Cobalt instance
+    partnership. Until then, YouTube stays out of the free/commercial bot.
 - Instagram scope: single public posts/reels/TV. Carousels, stories, private accounts → explicit "unsupported".
 - These resolvers are unofficial and fragile by nature. Each one is isolated in
   [`src/resolvers/`](src/resolvers/) with its own test suite; breakage is fixed reactively
