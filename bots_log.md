@@ -535,3 +535,29 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
     tabelas vc_channels/vc_terms no schema.
 - Decisao: nada a construir nesta tick. Bloqueio real inalterado: deploy exige
   wrangler login interativo (humano).
+
+## Auditoria #17 — ONDA 2 worker tick (24/08 ~21:00) — diretiva ClipGrab reenviada, nada a construir
+
+- Gatilho: mesma diretiva serverless (sem VM Oracle; camadas a/b/c) reenviada
+  verbatim. Auditoria contra o codigo real do main (e1cabea, pos-pull ff-only).
+  - a) TikTok: src/resolvers/tiktok.ts (web hydration PRIMARY + feed API
+    watermark-free FALLBACK com cooldown KV 600s compartilhado); b) Instagram:
+    src/resolvers/instagram.ts via embed JSON publico. Ambos TS puro, fetch
+    nativo, isolados por modulo COM suite propria (.test.ts) — manutencao
+    reativa nao derruba outras plataformas.
+  - c) YouTube FORA do bot: youtube.ts stub honesto (ToS Cobalt-imput proibe
+    comercial; sem ffmpeg/binaries em Workers; sem VM). README "coming soon" +
+    roadmap Deno Deploy + youtube.js documentado (README Honest limitations,
+    BOTS_EMPIRE.md linhas 36-48, deploy.md secao 7). Nenhuma chamada Cobalt no
+    codigo — grep limpo.
+  - Resposta = directUrl puro (src/index.ts:94): zero storage/banda nossa.
+  - Zero ffmpeg/child_process/VM em apps/clipgrab.
+- Restante da diretiva conferido presente no main: packages core (credits D1-CAS,
+  stars, auth, ratelimit KV, i18n, license_hmac), TranscribeForge (Workers AI
+  Whisper), InstaToolkit, infra/schema.d1.sql, deploy.md, .github/workflows/ci.yml.
+- Guardrail: pull --ff-only ok; Vitest **201/201 verde** (25 arquivos);
+  CI success no HEAD (run 32789657495). Commit pequeno por modulo respeitado
+  no historico.
+- Decisao: decima SETIMA auditoria consecutiva confirmando diretiva 100%
+  implementada. Nenhum codigo novo. Bloqueio real inalterado: deploy real
+  exige wrangler login interativo do owner (cron nao pode logar).
