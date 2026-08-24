@@ -300,3 +300,17 @@ nenhuma lacuna encontrada):
   como decisão de gestão pendente.
 - Decisão: nenhum código novo — quarta auditoria independente consecutiva
   confirma frota core-ready. Próximos passos reais: deploy (humano) ou ONDA 3.
+
+## 2026-08-24 ~13:55 UTC-3 — worker tick ONDA 2: auditoria #5 — nada a construir
+
+- Guardrail: pull --ff-only (400e330→df55600), suíte local **201/201 verde**
+  (25 arquivos), CI remota success no HEAD df55600 (run 32749462085).
+- Bots 4-6 reconferidos contra o roadmap — sem desvios novos:
+  SummarizeTube (free 3/dia, Pro 150★=R$15), DocuMind (free 2 docs/10
+  perguntas, Pro 300★), VoiceClone (escopo conservador admin-only, free
+  1 canal+1 termo, Pro 5+20). Idênticos à auditoria #4 de 13:15.
+- Pendências inalteradas: deploy real aguarda wrangler login interativo
+  (humano); VoiceClone Pro 200★ vs R$9/mo do roadmap segue pendente como
+  decisão de gestão.
+- Decisão: nenhum código novo; ONDA 2 permanece fechada. Próximo passo
+  real: deploy (bloqueio humano) ou ONDA 3 (InvoiceForge et al.).
