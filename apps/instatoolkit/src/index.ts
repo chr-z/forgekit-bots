@@ -9,8 +9,7 @@
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { reviewPreCheckout, type StarProduct } from "@forgekit/stars";
-import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
-import { parseUpdate, type CommandContext } from "@forgekit/app-shared/updates";
+import { BotApi, type TgUpdate, parseUpdate, type CommandContext } from "@forgekit/app-shared";
 
 import { fetchProfile, renderReport } from "./profile";
 import { generateHashtags, renderTagList } from "./hashtags";
@@ -76,7 +75,7 @@ export default {
     }
     if (route.kind !== "command") return new Response("ok");
 
-    const { command, args, chatId, user }: CommandContext = route;
+    const { command, args, chatId, user } = route.ctx;
     const locale = parseLocale(user.language_code) as "en" | "pt-BR";
     const bot = new BotApi(env.TELEGRAM_BOT_TOKEN);
 
