@@ -1,5 +1,24 @@
 # Bots Log — registro de execução
 
+## 2026-08-24 ~11:00 UTC-3 — Tick: ClipGrab TikTok hardened (ação da gestão executada)
+- **Ação pendente do relatório de gestão (manhã de 24/08) concluída**: web-hydration
+  promovida a ESTRATÉGIA PRIMÁRIA do resolver TikTok; feed API (`aweme/v1/feed`,
+  watermark-free) vira fallback atrás de cooldown KV compartilhado.
+- **Evidência fresca**: probe às ~10:50 UTC-3 deste host → feed API **429 de novo**
+  (fragilidade persistente, não episódica); página web do TikTok respondeu challenge
+  1.4KB pra UA sem cookies (o Worker em produção tem egress diferente — monitorar).
+- **Mecânica do cooldown**: 429/5xx na feed API grava `tt_feed_bench` no KV com TTL
+  600s; pedidos paralelos não re-testam endpoint benched; KV ausente ou quebrado
+  nunca derruba a resolução (best-effort). Página tem retry 2x só p/ falha transitória
+  (429/5xx/rede); conteúdo 4xx não repete. `routeResolve`/worker passam `env.KV`.
+- **Verificação**: vitest **198/198** (+6 testes novos: ordem das estratégias, skip e
+  set do bench, TTL gravado, KV ausente, KV quebrado, contagem de retry); tsc limpo;
+  commit pequeno único `278835f`; CI run 32735995171 = **success**.
+- **Nota de manutenção reativa**: página pública do Instagram hoje é shell JS sem
+  shortcodes no HTML — confirma a escolha do resolver IG por embed/captioned contextJSON
+  (não scraping de perfil).
+- Pendente segue igual: deploy real (wrangler login interativo), BotFather, wiring vivo.
+
 ## 2026-08-24 — Tick 3: auditoria anti-false-done ClipGrab + buraco de pagamento fechado
 
 **Guardrail:** clone fresco → 147/147 verde, tsc limpo, CI success no main (run 32707401748).
