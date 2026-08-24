@@ -333,3 +333,29 @@ nenhuma lacuna encontrada):
   atualizado para 201/201.
 - Pendências inalteradas: deploy real aguarda wrangler login interativo
   (humano); VoiceClone Pro 200★ vs R$9/mo segue decisão de gestão.
+
+## 2026-08-24 ~14:50 UTC-3 — worker tick ONDA 2: auditoria #7 — nada a construir
+
+- Gatilho: re-prompt padrão da onda 2 ("construa UM bot"). Guardrail cumprido:
+  pull --ff-only sem novidades (main já em 359a034, sincronizado com origin),
+  suíte local **201/201 verde** (25 arquivos), CI remota success no HEAD
+  (run 32754438924).
+- Bots 4-6 re-auditados contra BOTS_ROADMAP.md, código real no main:
+  - SummarizeTube: youtube.js puro JS + Workers AI [ai] binding; free 3/dia,
+    Pro 150★ (R$15). Testes youtube/summarizer/index = 113 asserts.
+  - DocuMind: pdf-parse no Worker + retrieval próprio zero-custo (Vectorize
+    DESCARTADA de propósito — na prática exige plano pago, violaria o
+    guardrail "free cabe no free"); free 2 docs/10 perguntas, Pro 300★.
+  - VoiceClone: escopo conservador admin-only verificado nos testes
+    (registra canal só após provar membership admin do bot); cron trigger
+    */15; free 1 termo, Pro 5+20.
+  - Todos com wrangler.toml bindings completos e CI.
+- Falso positivo do tick anterior esclarecido: o aviso "BOTS_EMPIRE.md não
+  modificado" referia-se a patch num caminho INEXISTENTE
+  (forgekit-bots\BOTS_EMPIRE.md); o arquivo real em saas_factory já exibia
+  201/201. Nada a corrigir.
+- Pendências inalteradas (fora do escopo): deploy real aguarda wrangler
+  login interativo (humano); VoiceClone Pro 200★ vs R$9/mo do roadmap segue
+  decisão de gestão.
+- Decisão: nenhum código novo — sétima auditoria consecutiva confirma ONDA 2
+  fechada e core-ready. Próximo passo real: deploy (bloqueio humano) ou ONDA 3.
