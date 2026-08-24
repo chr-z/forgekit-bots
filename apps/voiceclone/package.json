@@ -1,0 +1,17 @@
+{
+  "name": "@forgekit/voiceclone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@forgekit/app-shared": "*",
+    "@forgekit/auth": "*",
+    "@forgekit/i18n": "*",
+    "@forgekit/stars": "*"
+  }
+}
