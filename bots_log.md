@@ -397,3 +397,22 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Decisao: nenhum codigo novo - nona auditoria confirma ONDA 2 fechada e
   core-ready. Bloqueio real continua sendo deploy (wrangler login interativo,
   humano). Proximo passo util: ONDA 3 ou deploy quando o dono puder logar.
+
+## 2026-08-24 ~17:30 UTC-3 - worker tick ONDA 2: auditoria #10 - nada a construir
+
+- Gatilho: diretiva ClipGrab reenviada (dono reforcou: NAO depender de VM Oracle -
+  nunca conseguiu criar, sempre esgotada - estrategia serverless pura). Verificacao
+  ponto a ponto do main (6453190):
+  - apps/clipgrab = TikTok + Instagram com resolvers TS puros isolados em modulos
+    proprios COM teste (src/resolvers/tiktok.ts / instagram.ts); youtube.ts stub
+    honesto citando ToS Cobalt (imput) + ausencia de VM. Zero ffmpeg/binaries.
+  - Resposta ao usuario = LINK DIRETO da plataforma (zero storage/banda nossos).
+  - Docs refletem a decisao: README da frota ("ClipGrab: YouTube not supported yet"),
+    deploy.md paragrafo 7, BOTS_EMPIRE.md secao ClipGrab com roadmap Deno Deploy +
+    youtube.js puro JS (stream progressivo, sem ffmpeg) e alternativa de parceria
+    de instancia Cobalt.
+- Guardrail: pull --ff-only sem novidades, Vitest **201/201 verde** (25 arquivos),
+  tsc --noEmit limpo no apps/clipgrab, CI success no HEAD (run 32764420416).
+- Decisao: decima auditoria consecutiva confirma que o estado do main ja cumpre
+  100% da diretiva serverless. Nenhum codigo novo. Bloqueio real segue sendo
+  deploy (wrangler login interativo, humano). Proximo passo util: ONDA 3 ou deploy.
