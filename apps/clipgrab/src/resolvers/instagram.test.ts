@@ -65,6 +65,18 @@ describe("instagramResolver.resolve", () => {
     (globalThis as { fetch: unknown }).fetch = (async () => new Response(html, { status })) as typeof fetch;
   }
 
+  /** Mock that answers per user-agent, like the live endpoint does. */
+  function mockHtmlPerUa(byUa: (ua: string) => { body: string; status?: number }) {
+    (globalThis as { fetch: unknown }).fetch = (async (
+      _url: unknown,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      const ua = init?.headers?.["user-agent"] ?? "";
+      const r = byUa(ua);
+      return new Response(r.body, { status: r.status ?? 200 });
+    }) as typeof fetch;
+  }
+
   it("resolves a public reel via embed captioned", async () => {
     const ctxJson = JSON.stringify({
       shortcode: "Reel1",
@@ -103,5 +115,51 @@ describe("instagramResolver.resolve", () => {
     mockHtml("", 404);
     const r = await instagramResolver.resolve(new URL("https://www.instagram.com/p/Missing/"));
     expect(r.kind).toBe("failed");
+  });
+
+  it("parses the double-escaped crawler payload (live shape)", () => {
+    // Mirrors the real crawler-served blob: context nested inside
+    // gql_data.shortcode_media behind extra JSON escape layers.
+    const inner = JSON.stringify({
+      context: { type: "GraphVideo", shortcode: "Reel2" },
+      gql_data: {
+        shortcode_media: {
+          __typename: "GraphVideo",
+          shortcode: "Reel2",
+          is_video: true,
+          video_url: "https://cdninstagram.com/live.mp4",
+        },
+      },
+    });
+    // layer 1: the value is a JSON string inside the outer object
+    let escaped = JSON.stringify(inner);
+    // layer 2: that whole thing is itself embedded as a JSON string value
+    const raw = JSON.parse(escaped) as string; // inner, as served pre-entity-decode
+    const ctx = parseContextJSON(raw.replace(/"/g, "&quot;"));
+    expect(ctx?.is_video).toBe(true);
+    expect(pickEmbedMedia(ctx as EmbedContext)?.directUrl).toContain("live.mp4");
+  });
+
+  it("serves the payload from the crawler UA when the browser UA gets a JS shell", async () => {
+    const ctx = {
+      shortcode: "Reel3",
+      is_video: true,
+      video_url: "https://cdninstagram.com/crawl.mp4",
+    };
+    mockHtmlPerUa((ua) =>
+      ua.startsWith("facebookexternalhit")
+        ? { body: `<html><script>contextJSON = ${JSON.stringify(ctx).replace(/"/g, "&quot;")};</script></html>` }
+        : { body: "<html><body>shell-no-data</body></html>" },
+    );
+    const r = await instagramResolver.resolve(new URL("https://www.instagram.com/reel/Reel3/"));
+    expect(r).toMatchObject({ kind: "ok", via: "embed-captioned" });
+    if (r.kind === "ok") expect(r.directUrl).toContain("crawl.mp4");
+  });
+
+  it("fails honestly when no UA variant returns a payload", async () => {
+    mockHtmlPerUa(() => ({ body: "<html>shell</html>" }));
+    const r = await instagramResolver.resolve(new URL("https://www.instagram.com/p/NoData/"));
+    expect(r.kind).toBe("failed");
+    if (r.kind === "failed") expect(r.reason).toMatch(/no payload from any UA/);
   });
 });
