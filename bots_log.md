@@ -439,3 +439,22 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   confirma ONDA 2 100% construida. Tick docs-only. Bloqueio real inalterado:
   deploy aguarda wrangler login interativo (humano). Proximo passo util:
   ONDA 3 ou deploy quando o dono puder logar.
+
+## 2026-08-24 ~18:20 UTC-3 - worker tick ONDA 2: auditoria #12 - nada a construir
+
+- Gatilho: diretiva ClipGrab serverless reenviada (sem VM Oracle). Verificacao
+  independente do main (b1e1bd3), item a item:
+  - apps/clipgrab/src/resolvers/: tiktok.ts + instagram.ts isolados, cada um com
+    .test.ts proprio; youtube.ts stub honesto ("coming soon", zero Cobalt).
+  - Resposta ao usuario = LINK DIRETO (zero storage/banda nossos).
+  - Docs corretos: README da frota linha "ClipGrab: YouTube not supported yet",
+    apps/clipgrab/README.md com roadmap Deno Deploy + youtube.js, deploy.md SS7,
+    BOTS_EMPIRE.md decisao 2026-08-24 serverless puro / sem VM Oracle.
+  - Escopo restante presente: packages/ auth credits i18n license_hmac ratelimit
+    stars (+testes); apps transcribeforge instatoolkit (+summarizetube documind
+    voiceclone da ONDA 2); infra/schema.d1.sql; deploy.md; CI.
+- Guardrail: pull --ff-only sem novidades, Vitest **201/201 verde** (25 arquivos).
+- Decisao: decima segunda auditoria consecutiva sem gap. Nenhum commit de codigo;
+  este registro e docs-only. Bloqueio real inalterado: deploy aguarda wrangler
+  login interativo (humano). Proximo passo util: ONDA 3 ou deploy quando o dono
+  puder logar.
