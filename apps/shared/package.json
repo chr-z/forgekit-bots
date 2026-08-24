@@ -5,6 +5,11 @@
   "type": "module",
   "main": "./src/botapi.ts",
   "types": "./src/botapi.ts",
+  "exports": {
+    ".": "./src/botapi.ts",
+    "./botapi": "./src/botapi.ts",
+    "./updates": "./src/updates.ts"
+  },
   "scripts": {
     "test": "vitest run"
   },

@@ -13,7 +13,8 @@ import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { parseUpdate } from "@forgekit/app-shared/updates";
-import { toSrt, toTxt, toVtt, wordsToSegments, type Segment } from "./formatters";
+import { wordsToSegments, type Segment } from "./whisper";
+import { toSrt, toTxt, toVtt } from "./formatters";
 import { transcribeAudio, type WhisperResponse } from "./whisper";
 
 export interface Env {
@@ -92,12 +93,13 @@ async function telegramFileUrl(token: string, fileId: string): Promise<string> {
 
 /** Format a finished transcript into the requested output kind. */
 export function renderOutputs(resp: WhisperResponse): { txt: string; srt: string; vtt: string } {
-  let segments: Segment[] = [];
-  if (resp.words?.length) {
-    segments = wordsToSegments(resp.words);
-  }
+  // Fallback segment applies to ALL outputs so SRT/VTT are never empty
+  // when the model returned plain text without word timings.
+  const segments: Segment[] = resp.words?.length
+    ? wordsToSegments(resp.words)
+    : [{ start: 0, end: 1, text: resp.text ?? "" }];
   return {
-    txt: toTxt(segments.length ? segments : [{ start: 0, end: 1, text: resp.text ?? "" }]),
+    txt: toTxt(segments),
     srt: toSrt(segments),
     vtt: toVtt(segments),
   };
