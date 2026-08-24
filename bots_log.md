@@ -458,3 +458,24 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   este registro e docs-only. Bloqueio real inalterado: deploy aguarda wrangler
   login interativo (humano). Proximo passo util: ONDA 3 ou deploy quando o dono
   puder logar.
+
+## 2026-08-24 ~19:10 UTC-3 - worker tick ONDA 2: auditoria #13 - nada a construir
+
+- Gatilho: diretiva ClipGrab serverless reenviada verbatim (sem VM Oracle,
+  estrategia em camadas). Auditoria substantiva contra o codigo real do main
+  (0cb01b5), nao so nos logs dos ticks anteriores:
+  - apps/clipgrab/src/resolvers/{tiktok,instagram}.ts existem COM suíte propria
+    cada (.test.ts); youtube.ts stub honesto citando ToS Cobalt-imput + ausencia
+    de VM; zero ffmpeg/binaries/VM em todo o app.
+  - Resposta ao usuario = directUrl puro (src/index.ts), sem storage/banda.
+  - Docs conferidos linha a linha: README da frota linha "ClipGrab: YouTube not
+    supported yet" + motivo ToS; BOTS_EMPIRE.md paragrafo ClipGrab com decisao
+    completa e roadmap Deno Deploy + youtube.js (linha 47); deploy.md secao 7.
+  - Escopo restante presente: packages core (credits/stars/auth/ratelimit/
+    i18n/license_hmac), TranscribeForge, InstaToolkit, infra/schema.d1.sql,
+    deploy.md, .github/workflows/ci.yml.
+- Guardrail: pull --ff-only (2 commits de docs de outro worker), Vitest
+  **201/201 verde** (25 arquivos), tsc --noEmit limpo no clipgrab, CI success
+  no HEAD 0cb01b5.
+- Decisao: decima terceira auditoria consecutiva — main ja cumpre 100% da
+  diretiva. Nenhum codigo novo. Bloqueio real: deploy (wrangler login humano).
