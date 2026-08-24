@@ -31,6 +31,10 @@ export interface SuccessfulPaymentMessage {
 
 export type Route =
   | { kind: "command"; ctx: CommandContext }
+  | {
+      kind: "channel_post";
+      ctx: { chatId: number; chatType: string; messageId: number; text: string };
+    }
   | { kind: "pre_checkout"; queryId: string; payload: string; user: TgUser }
   | {
       kind: "successful_payment";
@@ -52,6 +56,18 @@ export function parseUpdate(update: TgUpdate): Route {
         kind: "successful_payment",
         ctx: { user: msg.from, chatId: msg.chat.id },
         payment: sp,
+      };
+    }
+  }
+  // Channel posts (VoiceClone Alerts): admin-only channels push these as
+  // dedicated updates; text-less posts (media) are ignored.
+  const cp = update.channel_post;
+  if (cp?.chat && typeof cp.text === "string") {
+    const text = cp.text.trim();
+    if (text) {
+      return {
+        kind: "channel_post",
+        ctx: { chatId: cp.chat.id, chatType: cp.chat.type, messageId: cp.message_id, text },
       };
     }
   }
