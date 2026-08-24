@@ -21,7 +21,7 @@ npx wrangler d1 create forgekit
 npx wrangler d1 execute forgekit --remote --file infra/schema.d1.sql
 
 # One KV namespace per bot (quotas are isolated on purpose)
-for ns in clipgrab transcribeforge instatoolkit summarizetube; do
+for ns in clipgrab transcribeforge instatoolkit summarizetube documind; do
   npx wrangler kv namespace create "$ns"
 done
 ```
@@ -55,15 +55,20 @@ curl "https://api.telegram.org/bot$TOKEN/setWebhook" \
   --data-urlencode "allowed_updates=[\"message\",\"pre_checkout_query\"]"
 ```
 
-## 5. Workers AI notes (TranscribeForge, SummarizeTube)
+## 5. Workers AI notes (TranscribeForge, SummarizeTube, DocuMind)
 
 The `AI` binding works out of the box on the free plan. Free tier ≈ 10k neurons/day —
-the quotas (monthly minutes / daily summaries) keep usage inside that envelope. If the
-envelope ever gets tight: pause new free users of that bot first, never generate cost
-(owner directive).
+the quotas (monthly minutes / daily summaries / monthly questions) keep usage inside
+that envelope. If the envelope ever gets tight: pause new free users of that bot first,
+never generate cost (owner directive).
 
 SummarizeTube degrades gracefully: if Workers AI returns nothing usable, the reply is
 built extractively from the caption timestamp index — never fabricated.
+
+DocuMind treats the AI binding as **optional**: retrieval + the extractive passage
+answer work with no `AI` binding at all (its wrangler.toml ships without one). Add
+`[ai] binding = "AI"` to apps/documind/wrangler.toml to enable model-written answers;
+either way users only ever see passage-cited content.
 
 ## 6. Verify after deploy
 

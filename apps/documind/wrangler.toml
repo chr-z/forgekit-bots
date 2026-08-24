@@ -1,0 +1,12 @@
+name = "documind-bot"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "forgekit"
+database_id = "SET_AFTER_CREATION"
+
+kv_namespaces = [{ binding = "KV", id = "SET_AFTER_CREATION" }]
+# secrets: TELEGRAM_BOT_TOKEN, WEBHOOK_SECRET
+# AI: not bound — Workers AI is optional; retrieval+extractive fallback work without it.

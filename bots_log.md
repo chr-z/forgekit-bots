@@ -52,3 +52,36 @@ PRIMEIRO, depois bot novo.
 - DocuMind (Bot 5) e VoiceClone Alerts (Bot 6) — restantes da ONDA 2.
 - BOTS_EMPIRE.md raiz ainda descreve a ONDA 1 como "em construção" — atualizar
   quando os 3 bots da ONDA 2 estiverem core-ready.
+
+---
+
+# Tick 24/08 — Wave 2: DocuMind (Bot 5) core-ready
+
+Branch `wave2-documind` -> PR para main. Guardrail respeitado: ONDA 1 verde + SummarizeTube mergeado antes de começar.
+
+## O que foi construído (apps/documind/)
+- `pdf.ts`: extrator PDF em TypeScript puro — varre streams `stream...endstream`, infla FlateDecode com DecompressionStream NATIVO do Workers (zero binários/wasm), extrai strings literais/hex dos operadores Tj/TJ (paren balancing, escapes octais, UTF-16BE via BOM). Páginas = unidades de content stream (paginação aproximada, rotulada como tal).
+- `rag.ts`: chunking por sentenças com orçamento de chars, retrieval por keywords COM stopwords pt/en (função não decide match), resposta grounded: modelo DEVE citar [n]; sem citação / NOT_IN_DOCUMENT / erro de IA -> degrada para resposta extrativa determinística. Nunca inventa.
+- `ingest.ts`: file_id -> getFile -> download (teto 20MB do Bot API), sniff de magic bytes %PDF-, truncamento honesto em 60k chars, persistência dm_docs/dm_chunks. Nada persiste se extração falha.
+- `index.ts`: worker completo — ingest por anexo, /ask+/q com recuperação ANTES de cobrar (match zero nunca cobra), quota free 2 docs + 10 perguntas/30d via KV RateLimiter, crédito do pack cobre pergunta além da cota, Pro 300 Stars/30d, pre-checkout review, /docs /use /forget, usage_log, i18n EN/pt-BR. AI binding OPCIONAL (wrangler.toml sem [ai] — roda 100% sem IA).
+
+## Decisão de arquitetura (Vectorize)
+Vectorize free tier exige plano pago na prática -> "RAG" = keyword scoring determinístico sobre chunks numerados em D1. Custo marginal ZERO por pergunta por construção. Roadmap: migrar p/ embeddings quando houver receita.
+
+## Testes
+- 35 novos asserts-blocos (pdf 12, rag 12, ingest 5, worker 6), fixtures PDF REAIS comprimidos via CompressionStream nativo do Node. Sem rede, sem mocks de LLM fora de fakes locais.
+- Suíte do monorepo: **147/147 verde** (112 pré-existentes + 35). tsc --noEmit limpo no app.
+
+## Bugs pegos pelos testes durante o desenvolvimento
+- EOL antes de `endstream` ia junto no payload e corrompia o inflate -> trim implementado.
+- Falta de separador entre strings adjacentes no TJ grudia palavras ("R$500" vs "R$ 500").
+- Stub de D1 sem meta.changes quebrava o CAS do spendCredits; KV stub sem parse json quebrava o RateLimiter -> stubs agora espelham a semântica real.
+- Ingest usava URL placeholder sem token do bot -> corrigido para bot<token>/getFile+file/bot<token> (padrão TranscribeForge).
+
+## Infra/docs atualizados neste tick
+- infra/schema.d1.sql: +dm_docs, +dm_chunks (PK doc_id+n = id de citação).
+- README.md: DocuMind na tabela da frota; deploy.md: KV documind + nota de AI opcional; apps/documind/README.md novo (limitações honestas).
+
+## Pendente próximo tick
+- VoiceClone Alerts (Bot 6) fecha a ONDA 2; depois, BOTS_EMPIRE.md raiz.
+- Deploy real segue bloqueado por wrangler login interativo (igual aos outros bots).
