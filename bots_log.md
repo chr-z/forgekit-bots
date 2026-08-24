@@ -359,3 +359,21 @@ nenhuma lacuna encontrada):
   decisão de gestão.
 - Decisão: nenhum código novo — sétima auditoria consecutiva confirma ONDA 2
   fechada e core-ready. Próximo passo real: deploy (bloqueio humano) ou ONDA 3.
+
+## 2026-08-24 ~14:55 UTC-3 — worker tick: re-verificação da diretiva ClipGrab-serverless (audit #8)
+
+Diretiva reenviada verbatim (sem mudanças). Nada novo a construir — estado do
+main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
+
+- ClipGrab = TikTok + Instagram via resolvers TS puros no Worker (src/resolvers/
+  tiktok.ts + instagram.ts, cada um com suíte própria); youtube.ts é stub
+  honesto ("coming soon"). Zero ffmpeg/binaries, zero VM Oracle.
+- Docs refletem a decisão: README da frota ("ClipGrab: YouTube not supported
+  yet" + motivo ToS Cobalt), deploy.md §7, BOTS_EMPIRE.md §ClipGrab (decisão
+  2026-08-24 completa, roadmap Deno Deploy + youtube.js documentado).
+- Bot responde só com LINK DIRETO — sem storage/banda nossos.
+- Core packages completos (credits/stars/auth/ratelimit/i18n/license_hmac +
+  testes), TranscribeForge (Workers AI Whisper), InstaToolkit,
+  infra/schema.d1.sql, deploy.md, CI — todos presentes no main.
+- Guardrail: pull --ff-only (1 commit novo de docs de outro worker), Vitest
+  **201/201 verde** (25 arquivos), tsc --noEmit limpo no apps/clipgrab.
