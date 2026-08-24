@@ -497,3 +497,24 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   CI success no HEAD d8a37f2.
 - Decisao: nada a construir — diretiva ja cumprida desde auditorias anteriores.
   Nenhum codigo novo. Bloqueio real continua deploy (wrangler login humano).
+
+## 24/08 (noite) — tick #15: diretiva serverless ClipGrab re-auditada contra o codigo real
+
+- Guardrail: pull --ff-only (2 commits de docs absorvidos), Vitest **201/201 verde**
+  (25 arquivos, 6.2s) no pos-pull.
+- Verificacao substantiva da diretiva do dono, item a item, no HEAD atual:
+  * Sem VM Oracle / sem Cobalt self-host: nenhum binding binario, nenhum fetch p/
+    cobalt/imput em apps/clipgrab — grep limpo; resolvers = TS puro com fetch nativo.
+  * TikTok: web hydration PRIMARY + feed API fallback com cooldown KV compartilhado
+    (apps/clipgrab/src/resolvers/tiktok.ts + tiktok.test.ts).
+  * Instagram: embed JSON publico (instagram.ts + instagram.test.ts).
+  * YouTube FORA do bot: resolvers/youtube.ts e stub documentado (ToS Cobalt publico
+    proibe uso comercial); bot responde "coming soon"; roadmap Deno Deploy + youtube.js
+    anotado no README do app e em deploy.md secao 7.
+  * Resposta ao usuario = LINK DIRETO (bot nunca hospeda/proxy o arquivo) — zero storage/banda.
+  * Docs coerentes: BOTS_EMPIRE.md (secao ClipGrab DECISAO 2026-08-24), README.md,
+    deploy.md. Core completo: credits/stars/auth/ratelimit/i18n/license_hmac com testes;
+    TranscribeForge ([ai] Whisper no wrangler.toml), InstaToolkit, infra/schema.d1.sql,
+    deploy.md, CI (ci.yml npm test). 25 suites de teste no total.
+- Decisao: nada a construir nesta tick. Bloqueio real inalterado: deploy exige
+  wrangler login interativo (humano).
