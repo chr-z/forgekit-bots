@@ -1,0 +1,21 @@
+{
+  "name": "forgekit-bots",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ForgeKit Bots — serverless Telegram bots on Cloudflare Workers free tier (TranscribeForge, ClipGrab, InstaToolkit)",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250816.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  }
+}
