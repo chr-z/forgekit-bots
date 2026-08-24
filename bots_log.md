@@ -1,0 +1,54 @@
+# Bots Log — registro de execução
+
+## 2026-08-24 — ONDA 2, tick 1 (worker wave2)
+
+**Guardrail:** ONDA 1 verificada antes de construir. Estado recebido: 82/83 testes,
+CI vermelho no push inicial (subpath import sem mapa de exports). Base estabilizada
+PRIMEIRO, depois bot novo.
+
+### Commits desta rodada
+
+1. `fix(core)` — base estabilizada:
+   - `apps/shared/package.json`: mapa `exports` (`./botapi`, `./updates`) — corrige o
+     failure de CI no Linux (subpath imports sem resolução).
+   - `apps/transcribeforge/src/index.ts`: fallback de segmento aplicado a SRT/VTT/TXT
+     (antes só TXT) + import de `wordsToSegments` apontado para `./whisper` (estava
+     importado de `./formatters`, que não exporta).
+2. `fix(apps)` — bug real de runtime pego pelo tsc: todos os handlers faziam
+   `const { command, chatId, user } = route` mas o `parseUpdate` retorna
+   `{ kind: "command", ctx: CommandContext }`. Em produção NENHUM comando seria
+   respondido. Corrigido em transcribeforge, clipgrab e instatoolkit
+   (`route.ctx`). O SummarizeTube já nasceu certo.
+3. `feat(summarizetube)` — Bot 4 da ONDA 2:
+   - `youtube.ts` (puro JS, zero binários): parse de URL em todas as formas
+     (watch/youtu.be/shorts/embed/live/nocookie), extração do
+     `ytInitialPlayerResponse` por brace-matching com normalizador de literal JS
+     (chaves sem aspas, vírgula solta), escolha de trilha de legenda (manual >
+     ASR, preferência pt-BR > pt > en), fetch+parse timedtext json3 e XML legado,
+     transcript com dedup de rolling captions, índice de timestamps [mm:ss] em
+     blocos ~45s, chunking por sentença.
+   - `summarizer.ts`: Workers AI llama-3.1-8b-instruct map-reduce (parcial por
+     chunk → merge TLDR+bullets), parser tolerante da resposta do modelo,
+     fallback extrativo determinístico (nunca inventa conteúdo).
+   - `index.ts`: worker completo — webhook com secret, /start /help /buy /buy,
+     /summarize + alias /s, quota free 3/dia via KV, crédito do pacote cobre
+     resumo além do limite (reembolso automático se o pipeline falha — falha
+     nunca cobra), catálogo Stars (Pro 200 Stars/30d, pack 100 = 150 Stars),
+     pre-checkout review, deep mode exclusivo Pro.
+   - Testes: 29 novos asserts-blocos (fakes de fetch/Ai, sem rede) — suíte toda
+     **112/112 verde** em ~1s. tsc limpo nos apps.
+
+### Notas técnicas
+- `extractPlayerResponse` pega a ÚLTIMA atribuição do marcador na página
+  (páginas reais trazem placeholder cedo + objeto populado depois).
+- Decodificação de entidades XML: strip de tags ANTES de decodificar
+  (`&lt;b&gt;` viraria tag se decodificasse primeiro).
+- Free tier: 1 GET youtube.com/watch + 1 GET timedtext + neurons só das legendas;
+  nada perto dos limites do plano free.
+- YouTube download (ClipGrab) segue fora do escopo comercial: documentado no README.
+
+### Pendente próximo tick
+- CI do GitHub precisa ficar verde neste push (primeiro push com exports map).
+- DocuMind (Bot 5) e VoiceClone Alerts (Bot 6) — restantes da ONDA 2.
+- BOTS_EMPIRE.md raiz ainda descreve a ONDA 1 como "em construção" — atualizar
+  quando os 3 bots da ONDA 2 estiverem core-ready.

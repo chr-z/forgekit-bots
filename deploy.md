@@ -21,7 +21,7 @@ npx wrangler d1 create forgekit
 npx wrangler d1 execute forgekit --remote --file infra/schema.d1.sql
 
 # One KV namespace per bot (quotas are isolated on purpose)
-for ns in clipgrab transcribeforge instatoolkit; do
+for ns in clipgrab transcribeforge instatoolkit summarizetube; do
   npx wrangler kv namespace create "$ns"
 done
 ```
@@ -55,11 +55,15 @@ curl "https://api.telegram.org/bot$TOKEN/setWebhook" \
   --data-urlencode "allowed_updates=[\"message\",\"pre_checkout_query\"]"
 ```
 
-## 5. Workers AI note (TranscribeForge)
+## 5. Workers AI notes (TranscribeForge, SummarizeTube)
 
 The `AI` binding works out of the box on the free plan. Free tier ≈ 10k neurons/day —
-the monthly-minutes quota keeps usage inside that envelope. If the envelope ever gets
-tight: pause new free users of that bot first, never generate cost (owner directive).
+the quotas (monthly minutes / daily summaries) keep usage inside that envelope. If the
+envelope ever gets tight: pause new free users of that bot first, never generate cost
+(owner directive).
+
+SummarizeTube degrades gracefully: if Workers AI returns nothing usable, the reply is
+built extractively from the caption timestamp index — never fabricated.
 
 ## 6. Verify after deploy
 
