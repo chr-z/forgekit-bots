@@ -10,8 +10,8 @@ import { verifyUpdateSignature } from "@forgekit/auth";
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { reviewPreCheckout, type StarProduct } from "@forgekit/stars";
-import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
-import { extractUrl, parseUpdate } from "@forgekit/app-shared/updates";
+import { BotApi, type TgUpdate } from "@forgekit/app-shared";
+import { extractUrl, parseUpdate } from "@forgekit/app-shared";
 
 import { routeResolve } from "./routing";
 import type { ResolveResult } from "./types";
@@ -76,15 +76,15 @@ const MESSAGES = {
   },
 };
 
-const QUALITY_LABEL: Record<boolean, { en: string; "pt-BR": string }> = {
-  true: { en: "no watermark", "pt-BR": "sem marca d'água" },
-  false: { en: "standard", "pt-BR": "padrão" },
+const QUALITY_LABEL: Record<"yes" | "no", { en: string; "pt-BR": string }> = {
+  yes: { en: "no watermark", "pt-BR": "sem marca d'água" },
+  no: { en: "standard", "pt-BR": "padrão" },
 };
 
 function replyFor(result: ResolveResult, locale: "en" | "pt-BR"): string {
   switch (result.kind) {
     case "ok": {
-      const quality = QUALITY_LABEL[String(result.watermarkFree)]![locale];
+      const quality = QUALITY_LABEL[result.watermarkFree ? "yes" : "no"]![locale];
       return [
         t(MESSAGES, locale, "here_your_link", { platform: result.platform, quality }),
         result.directUrl,
@@ -128,7 +128,7 @@ export default {
     }
 
     if (route.kind !== "command") return new Response("ok");
-    const { command, args, chatId, user } = route;
+    const { command, args, chatId, user } = route.ctx;
     const locale = parseLocale(user.language_code);
 
     if (command === "/start" || command === "/help") {

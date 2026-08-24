@@ -12,7 +12,7 @@
 
 import { hostEndsWith, type ResolveResult, type Resolver } from "../types";
 
-async function canonicalize(url: URL): Promise<URL> {
+export async function canonicalize(url: URL): Promise<URL> {
   if (url.hostname === "instagr.am" || url.hostname === "www.instagr.am") {
     const swapped = url.toString()
       .replace("//instagr.am", "//www.instagram.com")
