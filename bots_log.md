@@ -518,3 +518,20 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
     deploy.md, CI (ci.yml npm test). 25 suites de teste no total.
 - Decisao: nada a construir nesta tick. Bloqueio real inalterado: deploy exige
   wrangler login interativo (humano).
+
+## 24/08 (noite) — tick #16: diretiva ONDA 2 re-auditada contra o codigo real
+
+- Guardrail: pull --ff-only (7 commits de docs absorvidos), Vitest **201/201 verde**
+  (25 arquivos) no pos-pull.
+- Verificacao substantiva dos 3 bots da ONDA 2 no HEAD atual:
+  * summarizetube: extracao de legendas pure-JS (watch page -> ytInitialPlayerResponse
+    brace-matched -> timedtext json3/XML), fetch injetado p/ testes offline; Workers AI
+    ([ai] no wrangler.toml); FREE_DAILY_LIMIT=3.
+  * documind: pdf.ts + rag.ts (chunking por frases + scoring lexical; Vectorize evitado
+    de proposito — free tier exige plano pago, decisao documentada no header);
+    FREE_DOC_LIMIT=2 / FREE_QUESTION_LIMIT=10; tabelas dm_docs/dm_chunks no schema.
+  * voiceclone: escopo conservador (so canais admin), cron */15 SO drena retry queue,
+    matcher whole-word acento/caixa-insensitivo; FREE_CHANNELS=1 / FREE_TERMS=1;
+    tabelas vc_channels/vc_terms no schema.
+- Decisao: nada a construir nesta tick. Bloqueio real inalterado: deploy exige
+  wrangler login interativo (humano).
