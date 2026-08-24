@@ -198,7 +198,7 @@ export default {
         return new Response("ok");
       }
 
-      const result = await routeResolve(url);
+      const result = await routeResolve(url, env.KV);
       if (result.kind === "unsupported" && !url.hostname.includes("tiktok") && !url.hostname.includes("instagram")) {
         await bot.sendMessage(chatId, t(MESSAGES, locale, "unsupported_platform"));
         return new Response("ok");

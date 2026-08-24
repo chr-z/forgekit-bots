@@ -1,11 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  FEED_COOLDOWN_S,
+  benchFeedApi,
   canonicalize,
   extractUniversalData,
   extractVideoId,
+  feedApiBenched,
   isShortLink,
   pickAwemePlayUrl,
   pickWebPlayUrl,
+  resolve as resolveTiktok,
   tiktokResolver,
   type AwemeFeedResponse,
   type UniversalDataBlob,
@@ -15,6 +19,22 @@ const origFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = origFetch;
 });
+
+/** Minimal KV stub matching the surface the resolver uses. */
+function kvStub() {
+  const store = new Map<string, string>();
+  return {
+    store,
+    async get(key: string) {
+      return store.get(key) ?? null;
+    },
+    async put(key: string, value: string, opts?: { expirationTtl?: number }) {
+      store.set(key, value);
+      (store as Map<string, string> & { __ttl?: number }).__ttl = opts?.expirationTtl;
+      return undefined;
+    },
+  } as unknown as KVNamespace & { store: Map<string, string>; __ttl?: number };
+}
 
 describe("url helpers", () => {
   it("extracts video ids from canonical urls", () => {
@@ -96,49 +116,130 @@ describe("web page hydration parsing", () => {
   });
 });
 
+describe("feed endpoint cooldown (KV)", () => {
+  it("benches the feed api with the expected ttl", async () => {
+    const kv = kvStub();
+    await benchFeedApi(kv);
+    expect(kv.store.get("tt_feed_bench")).toBe("1");
+    expect((kv.store as Map<string, string> & { __ttl?: number }).__ttl).toBe(FEED_COOLDOWN_S);
+    expect(await feedApiBenched(kv)).toBe(true);
+  });
+
+  it("never benches and never reads when KV is absent", async () => {
+    await benchFeedApi(undefined); // must not throw
+    expect(await feedApiBenched(undefined)).toBe(false);
+  });
+
+  it("treats KV hiccups as not-benched / not-benched-able", async () => {
+    const broken = {
+      get: async () => {
+        throw new Error("kv down");
+      },
+      put: async () => {
+        throw new Error("kv down");
+      },
+    } as unknown as KVNamespace;
+    expect(await feedApiBenched(broken)).toBe(false);
+    await expect(benchFeedApi(broken)).resolves.toBeUndefined();
+  });
+});
+
 describe("tiktokResolver.resolve", () => {
-  function mockSequence(responses: Array<{ match: (url: string) => boolean; res: Response }>) {
+  function mockSequence(responses: Array<{ match: (url: string) => boolean; res: Response | Error }>) {
     (globalThis as { fetch: unknown }).fetch = (async (input: RequestInfo | URL) => {
       const hit = responses.find((r) => r.match(String(input)));
       if (!hit) throw new Error(`unexpected fetch ${String(input)}`);
+      if (hit.res instanceof Error) throw hit.res;
       return hit.res;
     }) as typeof fetch;
   }
 
-  it("strategy A wins: watermark-free via feed api", async () => {
-    mockSequence([
-      {
-        match: (u) => u.includes("/aweme/v1/feed/"),
-        res: new Response(JSON.stringify({
-          aweme_list: [{ aweme_id: "555", video: { play_addr: { url_list: ["https://cdn.tiktok.com/free.mp4"] } } }],
-        }), { status: 200 }),
-      },
-    ]);
-    const r = await tiktokResolver.resolve(new URL("https://www.tiktok.com/@a/video/555"));
-    expect(r).toMatchObject({ kind: "ok", platform: "tiktok", watermarkFree: true, via: "feed-api" });
-  });
+  const pageHtmlFor = (playAddr: string) =>
+    `<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__">${JSON.stringify({
+      __DEFAULT_SCOPE__: { "webapp.video-detail": { itemInfo: { itemStruct: { id: "555", video: { playAddr } } } } },
+    })}</script>`;
 
-  it("falls back to web page when feed api fails", async () => {
-    const pageBlob = {
-      __DEFAULT_SCOPE__: { "webapp.video-detail": { itemInfo: { itemStruct: { id: "555", video: { playAddr: "https://web.tiktok.com/wm.mp4" } } } } },
-    };
+  it("primary strategy: web page wins without touching the feed api", async () => {
     mockSequence([
-      { match: (u) => u.includes("/aweme/v1/feed/"), res: new Response("nope", { status: 403 }) },
       {
         match: (u) => u.includes("tiktok.com/@a/video/555"),
-        res: new Response(`<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__">${JSON.stringify(pageBlob)}</script>`, { status: 200 }),
+        res: new Response(pageHtmlFor("https://web.tiktok.com/wm.mp4"), { status: 200 }),
       },
     ]);
-    const r = await tiktokResolver.resolve(new URL("https://www.tiktok.com/@a/video/555"));
-    expect(r).toMatchObject({ kind: "ok", via: "web-page", watermarkFree: false });
+    const r = await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"));
+    expect(r).toMatchObject({ kind: "ok", platform: "tiktok", watermarkFree: false, via: "web-page" });
   });
 
-  it("fails honestly when both strategies fail", async () => {
+  it("falls back to feed api when the page fails, watermark-free", async () => {
     mockSequence([
-      { match: (u) => u.includes("/aweme/v1/feed/"), res: new Response("{}", { status: 200 }) },
-      { match: () => true, res: new Response("captcha", { status: 403 }) },
+      { match: (u) => u.includes("tiktok.com/@a/video/555"), res: new Response("captcha", { status: 403 }) },
+      {
+        match: (u) => u.includes("/aweme/v1/feed/"),
+        res: new Response(
+          JSON.stringify({
+            aweme_list: [{ aweme_id: "555", video: { play_addr: { url_list: ["https://cdn.tiktok.com/free.mp4"] } } }],
+          }),
+          { status: 200 },
+        ),
+      },
     ]);
-    const r = await tiktokResolver.resolve(new URL("https://www.tiktok.com/@a/video/555"));
+    const r = await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"), kvStub());
+    expect(r).toMatchObject({ kind: "ok", watermarkFree: true, via: "feed-api" });
+  });
+
+  it("a benched feed api is skipped entirely", async () => {
+    const kv = kvStub();
+    await benchFeedApi(kv);
+    mockSequence([
+      { match: (u) => u.includes("tiktok.com/@a/video/555"), res: new Response("captcha", { status: 403 }) },
+    ]);
+    const r = await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"), kv);
+    expect(r.kind).toBe("failed");
+    if (r.kind === "failed") expect(r.reason).toContain("benched");
+  });
+
+  it("a 429 from the feed api benches it for later requests", async () => {
+    const kv = kvStub();
+    mockSequence([
+      { match: (u) => u.includes("tiktok.com/@a/video/555"), res: new Response("captcha", { status: 403 }) },
+      { match: (u) => u.includes("/aweme/v1/feed/"), res: new Response("rate limited", { status: 429 }) },
+    ]);
+    const r1 = await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"), kv);
+    expect(r1.kind).toBe("failed");
+    expect(kv.store.get("tt_feed_bench")).toBe("1");
+
+    // Next request must NOT re-probe the feed endpoint.
+    let feedProbes = 0;
+    (globalThis as { fetch: unknown }).fetch = (async (input: RequestInfo | URL) => {
+      if (String(input).includes("/aweme/v1/feed/")) feedProbes++;
+      return new Response("captcha", { status: 403 });
+    }) as typeof fetch;
+    await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"), kv);
+    expect(feedProbes).toBe(0);
+  });
+
+  it("retries transient 5xx on the page fetch but not content 4xx", async () => {
+    let pageCalls = 0;
+    (globalThis as { fetch: unknown }).fetch = (async (input: RequestInfo | URL) => {
+      pageCalls++;
+      if (String(input).includes("@a/video/555")) {
+        return pageCalls <= 2
+          ? new Response("boom", { status: 503 })
+          : new Response(pageHtmlFor("https://web.tiktok.com/after-retry.mp4"), { status: 200 });
+      }
+      throw new Error(`unexpected fetch ${String(input)}`);
+    }) as typeof fetch;
+    const r = await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"));
+    expect(r).toMatchObject({ kind: "ok", via: "web-page" });
+    expect(pageCalls).toBe(3); // two 503s + success
+  });
+
+  it("fails honestly when all strategies fail", async () => {
+    mockSequence([
+      { match: (u) => u.includes("tiktok.com/@a/video/555"), res: new Response("captcha", { status: 403 }) },
+      { match: (u) => u.includes("/aweme/v1/feed/"), res: new Response("{}", { status: 200 }) }, // no play_addr
+    ]);
+    const r = await resolveTiktok(new URL("https://www.tiktok.com/@a/video/555"));
     expect(r.kind).toBe("failed");
     if (r.kind === "failed") expect(r.reason).toContain("all strategies failed");
   });

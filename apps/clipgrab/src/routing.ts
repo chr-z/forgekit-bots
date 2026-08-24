@@ -5,6 +5,7 @@
 
 import type { Platform, ResolveResult, Resolver } from "./types";
 import { instagramResolver } from "./resolvers/instagram";
+import { resolve as tiktokResolve } from "./resolvers/tiktok";
 import { tiktokResolver } from "./resolvers/tiktok";
 import { youtubeUnsupported } from "./resolvers/youtube";
 
@@ -18,7 +19,7 @@ export function findResolver(url: URL): Resolver | null {
   return RESOLVERS.find((r) => r.matches(url)) ?? null;
 }
 
-export async function routeResolve(url: URL): Promise<ResolveResult> {
+export async function routeResolve(url: URL, kv?: KVNamespace): Promise<ResolveResult> {
   const resolver = findResolver(url);
   if (!resolver) {
     return {
@@ -28,6 +29,9 @@ export async function routeResolve(url: URL): Promise<ResolveResult> {
     };
   }
   try {
+    // KV rides along for resolvers that need shared state (TikTok uses it
+    // to bench the rate-limited mobile feed endpoint); others ignore it.
+    if (resolver.platform === "tiktok") return await tiktokResolve(url, kv);
     return await resolver.resolve(url);
   } catch (err) {
     // Resolvers catch their own errors; this is a last-resort guard.
