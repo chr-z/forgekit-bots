@@ -149,3 +149,28 @@ Guardrail cumprido: suíte local re-verificada neste tick — **192/192 verde**
 - Housekeeping: commit do VoiceClone tinha deixado o workspace fora do package-lock;
   registrado e pushed (9f80bf5). Repo limpo, main sincronizado.
 - Pendente comum à frota: deploy real bloqueado só pelo wrangler login interativo.
+
+## 2026-08-24 ~10:00 UTC-3 — worker tick: verificação final do escopo ClipGrab-serverless
+
+Diretiva recebida neste tick: ClipGrab SEM depender de VM Oracle (estratégia
+serverless pura) + atualizar README/BOTS_EMPIRE + restante do trabalho igual.
+Verificação ponto a ponto contra o main (tudo já entregue por ticks anteriores;
+nenhuma lacuna encontrada):
+
+- ClipGrab = TikTok + Instagram, resolvers TS puros no Worker (src/resolvers/,
+  fetch nativo, sem ffmpeg/binaries): TikTok via feed API watermark-free com
+  fallback web-hydration; IG via embed JSON público; resposta = LINK DIRETO
+  (zero storage/banda nossa). Cada resolver isolado com teste próprio (21 asserts).
+- YouTube FORA do bot: resolvers/youtube.ts é stub honesto ("coming soon") —
+  ToS do Cobalt público proíbe uso comercial; instância própria exige infra que
+  não temos (VM Oracle nunca provisionável). README do app documenta a limitação
+  e o roadmap (Deno Deploy + youtube.js puro JS, ou parceria de instância).
+- Sem dependência de VM em lugar nenhum: deploy.md diz "No VMs anywhere";
+  BOTS_EMPIRE.md seção ClipGrab traz a decisão serverless completa.
+- Core packages completos com testes (credits/stars/auth/ratelimit/i18n/
+  license_hmac), TranscribeForge (Workers AI Whisper), InstaToolkit,
+  infra/schema.d1.sql (10 tabelas), deploy.md, CI — todos no main.
+- Grep por referências obsoletas a Cobalt/Oracle como infra planejada: só
+  restam menções de limitação/roadmap (corretas).
+- Guardrail: pull --ff-only (2 commits novos de outro worker), suíte local
+  **192/192 verde** (25 arquivos), tsc --noEmit limpo no apps/clipgrab.
