@@ -120,3 +120,24 @@ Vectorize free tier exige plano pago na prática -> "RAG" = keyword scoring dete
 ## Pendente próximo tick
 - VoiceClone Alerts (Bot 6) fecha a ONDA 2; depois, BOTS_EMPIRE.md raiz.
 - Deploy real segue bloqueado por wrangler login interativo (igual aos outros bots).
+
+# Tick 24/08 (tarde) — Wave 2 fechada: VoiceClone Alerts (Bot 6) core-ready
+
+## Estado na chegada deste worker
+VoiceClone já estava implementado e mergeado no main por tick anterior
+(commits 6e17769..823b496): matcher léxico puro, store D1, fila de retry KV,
+worker webhook-driven com /addchannel admin-proof, cron só drena retry,
+42 asserts verdes, CI success no último commit do main (run 32715472580).
+Guardrail cumprido: suíte local re-verificada neste tick — **192/192 verde**
+(25 arquivos), tsc --noEmit limpo no app.
+
+## Lacunas de documentação fechadas NESTE tick
+- `bots_log.md` não tinha a entrada do tick VoiceClone (o trabalho existia,
+  o log não) → esta entrada.
+- `BOTS_EMPIRE.md` (saas_factory) atualizado: ONDA 2 marcada como core-ready
+  (3/3 bots), status real da frota = 6 bots core-ready aguardando deploy
+  (wrangler login interativo segue o bloqueio comum a todos).
+
+## Pendente próximo tick
+- Deploy real dos 6 bots (bloqueio único: wrangler login interativo).
+- ONDA 3 (InvoiceForge, PriceWatch, LinguaLeap, HabitForge) — próximo worker.
