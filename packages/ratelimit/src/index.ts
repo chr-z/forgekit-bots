@@ -46,6 +46,16 @@ export class RateLimiter {
   }
 
   /**
+   * Read current window usage WITHOUT counting a use. For /status style
+   * commands — never blocks, never writes.
+   */
+  async peek(bot: string, subject: string): Promise<{ used: number; limit: number }> {
+    const ws = this.config.windowSeconds ?? 86400;
+    const existing = await this.kv.get<WindowState>(this.key(bot, subject), "json");
+    return { used: existing?.used ?? 0, limit: this.config.freeLimit };
+  }
+
+  /**
    * Count one use against `subject` unless they are exempt.
    * `exempt=true` means a paying user (Pro) or an admin — always allowed.
    */
