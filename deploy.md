@@ -34,6 +34,13 @@ For each bot: create a bot with @BotFather → get the token.
 Payments: activate the Stars provider for the bot via BotFather (`/mybots → Payments`),
 then register your product list from each app's catalog.
 
+**Payment flow (wired 24/08):** every worker now handles BOTH payment update shapes —
+`pre_checkout_query` (approved against the app catalog) and `message.successful_payment`
+(fulfilled via `fulfillSuccessfulPayment`, idempotent by `telegram_payment_charge_id`).
+A user who pays receives Pro/credits even if the confirmation message fails; fulfillment
+happens BEFORE the reply. Webhook registration must include `message` updates (default)
+— no extra `allowed_updates` entry is needed for payments.
+
 ## 3. Secrets & deploy
 
 Per app directory:

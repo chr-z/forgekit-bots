@@ -9,6 +9,7 @@ Serverless on Cloudflare Workers — we never host the media, so zero storage/ba
 |---|---|
 | Send a TikTok link (short or canonical) | → direct video URL, **watermark-free** when the feed endpoint cooperates |
 | Send an Instagram post/reel permalink | → direct media URL via the public embed payload |
+| `/status` | supported platforms + today's quota + Pro state |
 | Free tier | 3 links/day |
 | Pro (`/buy`) | unlimited links, paid in Telegram Stars |
 
@@ -37,8 +38,10 @@ Telegram webhook ──► src/index.ts (auth → rate limit → route)
                        └── resolvers/youtube.ts     (stub: documented refusal)
 ```
 
-- Quota: `@forgekit/ratelimit` on KV (fixed daily window)
-- Payments: Stars subscriptions + credit packs via `@forgekit/stars` (idempotent by charge id)
+- Quota: `@forgekit/ratelimit` on KV (fixed daily window); `/status` reads it via `peek()` without consuming
+- Payments: Stars subscriptions + credit packs via `@forgekit/stars` — pre-checkout review
+  AND idempotent fulfillment of `message.successful_payment` (a paid user always receives
+  Pro/credits, keyed by charge id)
 - Ledger: shared D1 (`infra/schema.d1.sql`)
 
 ## Tests
