@@ -76,7 +76,7 @@ export default {
     }
     if (route.kind !== "command") return new Response("ok");
 
-    const { command, args, chatId, user }: CommandContext = route;
+    const { command, args, chatId, user }: CommandContext = route.ctx;
     const locale = parseLocale(user.language_code) as "en" | "pt-BR";
     const bot = new BotApi(env.TELEGRAM_BOT_TOKEN);
 

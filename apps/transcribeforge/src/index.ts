@@ -13,8 +13,8 @@ import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { parseUpdate } from "@forgekit/app-shared/updates";
-import { wordsToSegments, type Segment } from "./whisper";
-import { toSrt, toTxt, toVtt } from "./formatters";
+import { wordsToSegments } from "./whisper";
+import { toSrt, toTxt, toVtt, type Segment } from "./formatters";
 import { transcribeAudio, type WhisperResponse } from "./whisper";
 
 export interface Env {
@@ -116,7 +116,7 @@ export default {
     const update = (await request.json()) as TgUpdate;
     const route = parseUpdate(update);
     if (route.kind !== "command") return new Response("ok");
-    const { command, chatId, user } = route;
+    const { command, chatId, user } = route.ctx;
     const locale = parseLocale(user.language_code);
     const bot = new BotApi(env.TELEGRAM_BOT_TOKEN);
 

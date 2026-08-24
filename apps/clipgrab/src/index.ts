@@ -128,7 +128,7 @@ export default {
     }
 
     if (route.kind !== "command") return new Response("ok");
-    const { command, args, chatId, user } = route;
+    const { command, args, chatId, user } = route.ctx;
     const locale = parseLocale(user.language_code);
 
     if (command === "/start" || command === "/help") {
