@@ -1,29 +1,36 @@
-/**
- * forgekit-telegram — minimal Telegram Bot API client for Workers.
- *
- * Deliberately tiny: only the calls our bots make. No bot framework.
- */
-
-const API = "https://api.telegram.org";
-
-export interface TgUser {
-  id: number;
-  is_bot?: boolean;
-  first_name?: string;
-  username?: string;
-  language_code?: string;
-}
-
 export interface Chat {
   id: number;
   type: string;
 }
 
+export interface TgUser {
+  id: number;
+  is_bot?: boolean;
+  first_name?: string;
+  language_code?: string;
+}
+
+/**
+ * Telegram Update shape (only fields this fleet consumes).
+ *
+ * `message` is intentionally loose: the same object carries plain text
+ * commands AND `message.successful_payment`. Narrow it in parseUpdate.
+ */
 export interface TgUpdate {
   update_id: number;
-  message?: { message_id: number; from?: TgUser; chat: Chat; text?: string };
+  message?: {
+    message_id: number;
+    from?: TgUser;
+    chat: Chat;
+    text?: string;
+    successful_payment?: {
+      currency: string; // "XTR" for Stars
+      total_amount: number;
+      invoice_payload: string;
+      telegram_payment_charge_id: string;
+    };
+  };
   pre_checkout_query?: { id: string; from: TgUser; invoice_payload: string };
-  successful_payment_message?: never;
 }
 
 interface ApiResponse<T> {
@@ -43,43 +50,43 @@ export class BotApi {
     });
     const json = (await res.json()) as ApiResponse<T>;
     if (!json.ok || json.result === undefined) {
-      throw new Error(`telegram ${method} failed: ${json.description ?? res.status}`);
+      throw new Error(`BotApi ${method} failed: ${json.description ?? res.status}`);
     }
     return json.result;
   }
 
-  sendMessage(
-    chatId: number,
-    text: string,
-    opts?: { reply_markup?: unknown; parse_mode?: "HTML" },
-  ): Promise<Message> {
-    return this.call<Message>("sendMessage", {
-      chat_id: chatId,
-      text,
-      link_preview_options: { is_disabled: true },
-      ...opts,
-    });
+  async sendMessage(chatId: number, text: string): Promise<unknown> {
+    return this.call("sendMessage", { chat_id: chatId, text });
   }
 
-  answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: string): Promise<boolean> {
-    return this.call<boolean>("answerPreCheckoutQuery", {
+  async answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: string): Promise<unknown> {
+    return this.call("answerPreCheckoutQuery", {
       pre_checkout_query_id: id,
       ok,
-      ...(errorMessage ? { error_message: errorMessage } : {}),
+      error_message: errorMessage,
     });
   }
 
-  /** One-off: register the webhook with a shared secret. Run during deploy. */
-  async setWebhook(url: string, secret: string): Promise<boolean> {
-    return this.call<boolean>("setWebhook", {
+  async setWebhook(url: string, secret: string): Promise<unknown> {
+    return this.call("setWebhook", {
       url,
       secret_token: secret,
       allowed_updates: ["message", "pre_checkout_query"],
     });
   }
+
+  async getFile(fileId: string): Promise<{ file_path?: string }> {
+    return this.call("getFile", { file_id: fileId });
+  }
+
+  fileUrl(filePath: string): string {
+    return `${FILE_API}/file/bot${this.token}/${filePath}`;
+  }
+
+  async sendChatAction(chatId: number, action: string): Promise<unknown> {
+    return this.call("sendChatAction", { chat_id: chatId, action });
+  }
 }
 
-export interface Message {
-  message_id: number;
-  chat: Chat;
-}
+const API = "https://api.telegram.org";
+const FILE_API = "https://api.telegram.org";

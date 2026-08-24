@@ -15,9 +15,28 @@ export interface CommandContext {
   args: string;
 }
 
+/** Raw `message.successful_payment` shape (only fields we consume). */
+export interface SuccessfulPaymentMessage {
+  message_id: number;
+  from?: TgUser;
+  chat: { id: number; type: string };
+  successful_payment: {
+    currency: string; // "XTR" for Stars
+    total_amount: number;
+    invoice_payload: string;
+    telegram_payment_charge_id: string;
+    from?: { id: number };
+  };
+}
+
 export type Route =
   | { kind: "command"; ctx: CommandContext }
   | { kind: "pre_checkout"; queryId: string; payload: string; user: TgUser }
+  | {
+      kind: "successful_payment";
+      ctx: { user: TgUser | undefined; chatId: number };
+      payment: SuccessfulPaymentMessage["successful_payment"];
+    }
   | { kind: "unhandled" };
 
 export function parseUpdate(update: TgUpdate): Route {
@@ -26,6 +45,16 @@ export function parseUpdate(update: TgUpdate): Route {
     return { kind: "pre_checkout", queryId: pcq.id, payload: pcq.invoice_payload, user: pcq.from };
   }
   const msg = update.message;
+  if (msg && typeof msg === "object" && "successful_payment" in msg) {
+    const sp = (msg as unknown as SuccessfulPaymentMessage).successful_payment;
+    if (sp) {
+      return {
+        kind: "successful_payment",
+        ctx: { user: msg.from, chatId: msg.chat.id },
+        payment: sp,
+      };
+    }
+  }
   if (msg?.from && !msg.from.is_bot && typeof msg.text === "string") {
     const text = msg.text.trim();
     if (text.startsWith("/")) {
