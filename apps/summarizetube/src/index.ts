@@ -15,7 +15,7 @@ import { verifyUpdateSignature } from "@forgekit/auth";
 import { grantCredits, spendCredits } from "@forgekit/credits";
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
-import { reviewPreCheckout, type StarProduct } from "@forgekit/stars";
+import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { extractUrl, parseUpdate } from "@forgekit/app-shared/updates";
 
@@ -71,6 +71,7 @@ const MESSAGES = {
     start: "Send me a YouTube link and I'll reply with a structured summary (TLDR + key points with timestamps).\n\nFree: 3 summaries/day. /buy for unlimited + deep mode.",
     not_a_youtube_link: "That doesn't look like a YouTube link. Try https://youtu.be/... or a youtube.com/watch?v=... URL.",
     quota_exceeded: "Daily free limit reached ({limit}/day). Resets in {hours}h — or get unlimited with /buy.",
+    payment_ok: "Payment confirmed — {amount} Stars received. Thanks!",
     working: "Watching the video… this can take a moment.",
     no_captions: "This video has no usable captions (neither manual nor auto-generated), so I can't summarize it honestly.",
     failed: "Couldn't process this video right now.\nYouTube changes things often — it's logged and will be fixed. Nothing was charged.",
@@ -81,6 +82,7 @@ const MESSAGES = {
     start: "Me manda um link do YouTube que eu respondo com um resumo estruturado (TLDR + pontos-chave com timestamps).\n\nGrátis: 3 resumos/dia. /buy para ilimitado + modo profundo.",
     not_a_youtube_link: "Isso não parece um link do YouTube. Tenta https://youtu.be/... ou uma URL youtube.com/watch?v=...",
     quota_exceeded: "Limite diário grátis atingido ({limit}/dia). Reseta em {hours}h — ou vire ilimitado com /buy.",
+    payment_ok: "Pagamento confirmado — {amount} Stars recebidos. Valeu!",
     working: "Assistindo ao vídeo… pode demorar um pouco.",
     no_captions: "Esse vídeo não tem legendas utilizáveis (nem manuais nem automáticas), então não dá pra resumir com honestidade.",
     failed: "Não consegui processar esse vídeo agora.\nO YouTube muda as coisas com frequência — está logado e será corrigido. Nada foi cobrado.",
@@ -208,6 +210,23 @@ export default {
     if (route.kind === "pre_checkout") {
       const review = reviewPreCheckout({ invoice_payload: route.payload }, SUMMARIZETUBE_CATALOG);
       await bot.answerPreCheckoutQuery(route.queryId, review.ok, review.errorMessage);
+      return new Response("ok");
+    }
+
+    if (route.kind === "successful_payment") {
+      // Idempotent by telegram_payment_charge_id (star_payments PK).
+      if (route.ctx.user) {
+        await fulfillSuccessfulPayment(
+          env.DB,
+          { ...route.payment, from: { id: route.ctx.user.id } },
+          SUMMARIZETUBE_CATALOG,
+        );
+        const locale = parseLocale(route.ctx.user.language_code);
+        await bot.sendMessage(
+          route.ctx.chatId,
+          t(MESSAGES, locale, "payment_ok", { amount: route.payment.total_amount }),
+        );
+      }
       return new Response("ok");
     }
 
