@@ -31,6 +31,15 @@ export interface TgUpdate {
     };
   };
   pre_checkout_query?: { id: string; from: TgUser; invoice_payload: string };
+  /** Admin channels push new posts here (VoiceClone Alerts). */
+  channel_post?: ChannelPostMessage;
+}
+
+/** Raw `channel_post` shape (only fields we consume). */
+export interface ChannelPostMessage {
+  message_id: number;
+  chat: { id: number; type: string };
+  text?: string;
 }
 
 interface ApiResponse<T> {
@@ -85,6 +94,21 @@ export class BotApi {
 
   async sendChatAction(chatId: number, action: string): Promise<unknown> {
     return this.call("sendChatAction", { chat_id: chatId, action });
+  }
+
+  /** Bot identity — needed to check our own membership via getChatMember. */
+  async getMe(): Promise<{ id: number; username?: string }> {
+    return this.call("getMe", {});
+  }
+
+  /** Resolve a @username or numeric chat id into a concrete chat. */
+  async getChat(chatId: string | number): Promise<{ id: number; type: string; title?: string }> {
+    return this.call("getChat", { chat_id: chatId });
+  }
+
+  /** Membership/status of a user in a chat (channels: admins only see real data). */
+  async getChatMember(chatId: string | number, userId: number): Promise<{ status: string }> {
+    return this.call("getChatMember", { chat_id: chatId, user_id: userId });
   }
 }
 
