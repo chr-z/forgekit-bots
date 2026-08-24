@@ -141,3 +141,11 @@ Guardrail cumprido: suíte local re-verificada neste tick — **192/192 verde**
 ## Pendente próximo tick
 - Deploy real dos 6 bots (bloqueio único: wrangler login interativo).
 - ONDA 3 (InvoiceForge, PriceWatch, LinguaLeap, HabitForge) — próximo worker.
+
+## 2026-08-24 09:05 UTC-3 — worker ONDA 2 (tick): auditoria + housekeeping
+- Guardrail: ONDA 1 verde (192/192 local, CI success em todos os runs do main).
+- Bots 4-6 JÁ completos por ticks anteriores: SummarizeTube (PR #1), DocuMind (PR #2),
+  VoiceClone Alerts (+ runbook channel_post). Nada a construir — tick virou auditoria.
+- Housekeeping: commit do VoiceClone tinha deixado o workspace fora do package-lock;
+  registrado e pushed (9f80bf5). Repo limpo, main sincronizado.
+- Pendente comum à frota: deploy real bloqueado só pelo wrangler login interativo.
