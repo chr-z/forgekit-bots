@@ -1,5 +1,27 @@
 # Bots Log — registro de execução
 
+## 2026-08-24 ~12:15 UTC-3 — Tick: Instagram resolver corrigido contra payload crawler-only (bug real de produção)
+- **Guardrail**: clone em main @ fb6ecfe, vitest 198/198 verde antes de qualquer mudança.
+- **Bug real descoberto por probe ao vivo** (manutenção reativa prevista na diretiva):
+  o endpoint `/p/<code>/embed/captioned` hoje só serve o payload `contextJSON`
+  para **user-agents de crawler** (`facebookexternalhit`). Com UA de browser
+  (o que o resolver usava) a resposta é shell JS **sem nenhum dado** — ou seja,
+  o resolver IG estava quebrado na prática mesmo com testes verdes.
+- **Correção** (commit pequeno único `762117a`, apps/clipgrab):
+  - `fetchEmbedHtml()` tenta candidatos de UA em ordem (crawler primeiro, browser
+    como fallback) e exige o marcador `contextJSON` no corpo;
+  - regex do valor-string agora tolera aspas escapadas dentro do blob;
+  - `parseContextJSON()` desenrola camadas extras de escape JSON e eleva
+    `gql_data.shortcode_media` (formato real servido) pro mesmo shape `EmbedContext`;
+  - validado contra HTML REAL salvo do endpoint: link direto .mp4 extraído com sucesso.
+- **Testes**: +3 unitários travando o formato crawler-only e o fallback de UA.
+  Suite completa: vitest **201/201**, `tsc --noEmit` limpo; push `fb6ecfe..762117a`.
+- **Estado do TikTok (mesmo probe)**: página web segue atrás de WAF/challenge neste
+  host (1.4KB sem hydration); feed API **429 persistente** (cooldown já implementado
+  no tick anterior cobre); oEmbed público OK mas só metadados. Egress do Worker em
+  produção pode se comportar diferente — monitorar após deploy.
+- Pendente segue igual: deploy real (wrangler login interativo), BotFather, wiring vivo.
+
 ## 2026-08-24 ~11:00 UTC-3 — Tick: ClipGrab TikTok hardened (ação da gestão executada)
 - **Ação pendente do relatório de gestão (manhã de 24/08) concluída**: web-hydration
   promovida a ESTRATÉGIA PRIMÁRIA do resolver TikTok; feed API (`aweme/v1/feed`,
