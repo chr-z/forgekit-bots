@@ -76,7 +76,7 @@ const MESSAGES = {
       "Send me a PDF or text file and ask anything about it — answers cite the exact passages ([1], [2]).\n\nFree: 2 documents + 10 questions every 30 days. /buy for unlimited.",
     not_a_document: "Attach a PDF or text file (as a file, not a photo) and I'll index it.",
     too_large: "File too large — the Telegram cap for bots is 20MB.",
-    unsupported_format: "I only read PDF and plain-text files for now (.pdf, .txt, .md, .csv).",
+    unsupported_format: "I only read PDF, DOCX and plain-text files for now (.pdf, .docx, .txt, .md, .csv).",
     no_text: "This file has no readable text (scanned image?). I won't invent content — try a text-based PDF.",
     failed: "Something broke while reading the file.\nIt's logged and will be fixed. Nothing was charged.",
     doc_ready:
@@ -110,7 +110,7 @@ const MESSAGES = {
       "Me manda um PDF ou arquivo de texto e pergunta qualquer coisa sobre ele — as respostas citam os trechos exatos ([1], [2]).\n\nGrátis: 2 documentos + 10 perguntas a cada 30 dias. /buy para ilimitado.",
     not_a_document: "Anexa um PDF ou arquivo de texto (como arquivo, não como foto) que eu indexo.",
     too_large: "Arquivo grande demais — o limite do Telegram para bots é 20MB.",
-    unsupported_format: "Por enquanto eu leio só PDF e texto puro (.pdf, .txt, .md, .csv).",
+    unsupported_format: "Por enquanto eu leio PDF, DOCX e texto puro (.pdf, .docx, .txt, .md, .csv).",
     no_text: "Esse arquivo não tem texto legível (imagem escaneada?). Não vou inventar conteúdo — tenta um PDF com texto.",
     failed: "Algo quebrou lendo o arquivo.\nEstá logado e será corrigido. Nada foi cobrado.",
     doc_ready:

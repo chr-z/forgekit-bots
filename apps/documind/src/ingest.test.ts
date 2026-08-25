@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyAttachment, ingestDocument, MAX_DOC_BYTES } from "./ingest";
+import { buildDocxBytes } from "./testhelpers";
 
 /** In-memory D1 stub covering exactly the statements ingestDocument issues. */
 function makeD1() {
@@ -68,6 +69,16 @@ describe("classifyAttachment", () => {
     expect(classifyAttachment({ file_name: "foto.jpg", mime_type: "image/jpeg" }).kind).toBeNull();
     expect(classifyAttachment({ file_name: "" }).title).toBe("documento");
     expect(classifyAttachment({ file_name: "relatório-final.pdf" }).title).toBe("relatório-final");
+  });
+
+  it("routes .docx by extension AND by its OOXML mime; .doc legacy stays out", () => {
+    expect(classifyAttachment({ file_name: "parecer.DOCX" }).kind).toBe("docx");
+    expect(
+      classifyAttachment({
+        mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }).kind,
+    ).toBe("docx");
+    expect(classifyAttachment({ file_name: "antigo.doc" }).kind).toBeNull();
   });
 });
 
@@ -146,4 +157,53 @@ describe("ingestDocument", () => {
     expect(notPdf.reason).toBe("unsupported_format");
     expect(store.docs).toHaveLength(0); // nothing persisted on failures
   });
+
+  it("happy path DOCX: real zip container extracts, chunks and persists", async () => {
+    const bytes = await buildDocxBytes();
+    const store = makeD1();
+    const result = await ingestDocument(
+      { fileId: "G1", title: "Parecer", kind: "docx", userId: 42, botToken: "T" },
+      { fetchImpl: makeFetcher({ bytes }), db: store.db },
+    );
+    expect(result.ok).toBe(true);
+    expect(result.doc!.nPages).toBe(1); // document.xml only → single text part
+    expect(result.doc!.title).toBe("Parecer");
+    expect(result.doc!.nChunks).toBeGreaterThanOrEqual(1);
+    expect(store.docs).toHaveLength(1);
+    expect(store.chunks[0]!.text).toContain("garantia");
+    expect(store.chunks[0]!.text).toContain("rescisória"); // tab honored + entity decoded
+  });
+
+  it("DOCX honesty: faked PK magic, scanned-equivalent and legacy .doc all refused without persisting", async () => {
+    // Fake container: starts with PK but has no central directory.
+    const fake = await ingestDocument(
+      { fileId: "H1", title: "Fake", kind: "docx", userId: 9, botToken: "T" },
+      { fetchImpl: makeFetcher({ bytes: enc("PK\x03\x04 junk no directory") }), db: makeD1().db },
+    );
+    expect(fake.ok).toBe(false);
+    expect(fake.reason).toBe("no_text");
+
+    // Real docx whose body carries no readable text (scanned equivalent).
+    const empty = await ingestDocument(
+      { fileId: "H2", title: "Empty", kind: "docx", userId: 9, botToken: "T" },
+      {
+        fetchImpl: makeFetcher({
+          bytes: await buildDocxBytes({ documentXml: "<w:document><w:body></w:body></w:document>" }),
+        }),
+        db: makeD1().db,
+      },
+    );
+    expect(empty.reason).toBe("no_text");
+
+    // Corrupted entry must not silently index partial content.
+    const corrupt = await ingestDocument(
+      { fileId: "H3", title: "Corrupt", kind: "docx", userId: 9, botToken: "T" },
+      { fetchImpl: makeFetcher({ bytes: await buildDocxBytes({ corruptPayload: true }) }), db: makeD1().db },
+    );
+    expect(corrupt.reason).toBe("failed");
+  });
 });
+
+function enc(s: string): Uint8Array {
+  return new TextEncoder().encode(s);
+}

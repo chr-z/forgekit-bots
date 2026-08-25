@@ -205,3 +205,139 @@ export function makeCaptureFetch(opts: CapturingFetchOpts): typeof fetch {
   };
   return impl as unknown as typeof fetch;
 }
+
+// ------------------------------------------------------- docx fixtures
+// Real ZIP containers written byte-by-byte so the extractor is exercised
+// against genuine central-directory/local-header layouts, not mocks.
+
+import { crc32 } from "./docx";
+
+export const DOCX_DOCUMENT_XML =
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+  '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+  "<w:p><w:r><w:t>Cl&#225;usula 1&amp;2: prazo de </w:t></w:r><w:r><w:t>garantia</w:t></w:r></w:p>" +
+  "<w:p><w:r><w:t>multa</w:t></w:r><w:r><w:tab/><w:t>rescis&#243;ria</w:t></w:r></w:p>" +
+  "</w:body></w:document>";
+
+export interface DocxFixtureOpts {
+  /** Compress entries with raw deflate (default true); false = stored/method 0. */
+  deflate?: boolean;
+  /** Extra parts (name → xml string) added after word/document.xml. */
+  extraParts?: Record<string, string>;
+  /** Replace word/document.xml entirely. */
+  documentXml?: string;
+  /** Mark the sole entry with a trailing data descriptor flag+footer. */
+  dataDescriptor?: boolean;
+  /** Corrupt N bytes inside the first entry's compressed payload. */
+  corruptPayload?: boolean;
+  /** Lie about the first entry's uncompressed size in BOTH directories. */
+  badSize?: boolean;
+  /** Force an unsupported compression method on every entry. */
+  badMethod?: boolean;
+}
+
+function u16arr(...ns: number[]): Uint8Array {
+  const out = new Uint8Array(ns.length);
+  ns.forEach((n, i) => (out[i]! = n & 0xff));
+  return out;
+}
+function u16v(n: number): Uint8Array {
+  return u16arr(n & 0xff, (n >>> 8) & 0xff);
+}
+function u32v(n: number): Uint8Array {
+  return u16arr(n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff);
+}
+function concat(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.length;
+  }
+  return out;
+}
+
+async function rawDeflate(content: string): Promise<Uint8Array> {
+  const cs = new CompressionStream("deflate-raw");
+  const buf = await new Response(new Blob([content]).stream().pipeThrough(cs)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+/** Build a minimal-but-real .docx (OOXML zip) for extractor/ingest tests. */
+export async function buildDocxBytes(opts: DocxFixtureOpts = {}): Promise<Uint8Array> {
+  const useDeflate = opts.deflate !== false;
+  const method = opts.badMethod ? 12 : useDeflate ? 8 : 0;
+  const names = ["word/document.xml", ...Object.keys(opts.extraParts ?? {})];
+  const contents = [opts.documentXml ?? DOCX_DOCUMENT_XML, ...Object.values(opts.extraParts ?? {})];
+
+  const locals: Uint8Array[] = [];
+  const centrals: Uint8Array[] = [];
+  let offset = 0;
+  for (let i = 0; i < names.length; i++) {
+    const nameB = new TextEncoder().encode(names[i]!);
+    const raw = new TextEncoder().encode(contents[i]!);
+    const payload = useDeflate ? await rawDeflate(contents[i]!) : raw.slice();
+    const crc = opts.corruptPayload && i === 0 ? crc32(raw) ^ 0xffff : crc32(raw);
+    const usize = opts.badSize && i === 0 ? raw.length + 5 : raw.length;
+
+    const flags = opts.dataDescriptor ? 0x0008 : 0;
+    // Bit-3 entries append a {crc,csize,usize} footer after the payload.
+    const descTail = opts.dataDescriptor ? concat([u32v(crc), u32v(crc), u32v(usize)]) : new Uint8Array(0);
+
+    locals.push(
+      concat([
+        u32v(0x04034b50),
+        u16v(20),
+        u16v(flags),
+        u16v(method),
+        u16v(0),
+        u16v(0),
+        u32v(crc),
+        u32v(payload.length),
+        u32v(usize),
+        u16v(nameB.length),
+        u16v(0),
+        nameB,
+        payload,
+        descTail,
+      ]),
+    );
+    centrals.push(
+      concat([
+        u32v(0x02014b50),
+        u16v(20),
+        u16v(20),
+        u16v(flags),
+        u16v(method),
+        u16v(0),
+        u16v(0),
+        u32v(crc),
+        u32v(payload.length),
+        u32v(usize),
+        u16v(nameB.length),
+        u16v(0),
+        u16v(0),
+        u16v(0),
+        u16v(0),
+        u32v(0),
+        u32v(offset),
+        nameB,
+      ]),
+    );
+    offset += locals[locals.length - 1]!.length;
+  }
+  const centralDir = concat(centrals);
+  return concat([
+    ...locals,
+    centralDir,
+    u32v(0x06054b50),
+    u16v(0),
+    u16v(0),
+    u16v(names.length),
+    u16v(names.length),
+    u32v(centralDir.length),
+    u32v(offset),
+    u16v(0),
+  ]);
+}
