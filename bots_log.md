@@ -693,3 +693,28 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   paginação 2-2/vazio/clear isolado/cap 4096/i18n). Suíte completa 212/212 (26 arquivos),
   tsc -p tsconfig.base.json --noEmit limpo, CI pass no PR #4 antes do merge.
 - Bloqueio inalterado: deploy exige wrangler login interativo do owner.
+
+## Wave 2 build tick #3 (25/08 ~05:50) — SummarizeTube /export pdf SHIPPED via PR #5 (224/224)
+- Diretiva permanente re-verificada: ClipGrab serverless intocado (resolvers TikTok/IG, YouTube fora),
+  zero Cobalt em código; frota completa no main.
+- Trabalho real deste tick: concluído o /export pdf que o tick anterior deixou pela metade na branch
+  feature/st-pdf-export (pdf.ts WIP com bugs estruturais).
+- pdf.ts REESCRITO e corrigido:
+  * bug 1: stream comprimido era embutido em base64 com /Filter /FlateDecode -> PDF ilegível;
+    agora bytes binários direto (assembly binary-safe).
+  * bug 2: startxref apontava pra posição errada (offsets contados por string) -> xref exato sobre
+    posições reais de byte, verificado por teste.
+  * bug 3: acentos PT-BR corrompidos (Blob UTF-8 + sem encoding) -> latin1 explícito antes de
+    comprimir + /WinAnsiEncoding; teste infla o stream e confere os bytes WinAnsi 1:1.
+  * extras: wrap greedy + truncamento no limite da página A4, fallback sem CompressionStream,
+    escape de literais PDF, header binário %PDF-1.4.
+- BotApi.sendDocument novo (multipart/form-data) em apps/shared — mesmo contrato de erro do path JSON.
+- Handler: pipeline retorna doc estruturado; KV cache summarizetube:lastdoc:<user> TTL 7d;
+  /export [pdf] com gating Pro + sanitização de filename + i18n EN/pt-BR (export_pro_only/nothing/failed).
+- Testes novos: pdf.test.ts (12: xref byte-exato, round-trip inflate, mapeamento de acentos,
+  truncamento, fallback, escaping) + export.test.ts (4 via webhook: recusa free-user, cache vazio,
+  happy path inspecionando o multipart capturado, filename hostil sanitizado).
+- Guardrail: Vitest **224/224 verde** (28 arquivos), tsc limpo nos apps tocados, CI success no PR
+  (run 32828196826, 14s), merge --merge --delete-branch ok, main local = origin/main (b5bdac2).
+- README: linha do SummarizeTube atualizada com /export pdf (Pro).
+- Bloqueio real INALTERADO: deploy de produção exige wrangler login interativo do dono (cron não autentica).
