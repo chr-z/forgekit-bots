@@ -7,7 +7,7 @@ import {
   QUOTA_WINDOW_DAYS,
 } from "./index";
 import { fulfillSuccessfulPayment } from "@forgekit/stars";
-import { buildPdfBytes, makeCaptureFetch, makeDocD1 } from "./testhelpers";
+import { buildDocxBytes, buildPdfBytes, makeCaptureFetch, makeDocD1 } from "./testhelpers";
 
 const USER = { id: 777, is_bot: false, language_code: "pt-BR" };
 const CHAT = { id: 42, type: "private" };
@@ -54,6 +54,8 @@ function webhook(body: unknown, secret = "s3cret"): Request {
 
 function mimeFor(name: string): string {
   if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (name.endsWith(".doc")) return "application/msword";
   if (name.endsWith(".jpg")) return "image/jpeg";
   return "text/plain";
 }
@@ -137,6 +139,28 @@ describe("document intake over the webhook", () => {
     const res = await worker.fetch(webhook(docUpdate(3, "foto.jpg")), env() as never);
     expect(res.status).toBe(200);
     expect(store.docs).toHaveLength(0);
+  });
+
+  it("indexes a real .docx over the webhook and answers questions about it", async () => {
+    globalThis.fetch = makeCaptureFetch({
+      sent,
+      fileBytes: await buildDocxBytes(),
+    }) as never;
+    const res = await worker.fetch(webhook(docUpdate(30, "parecer.docx")), env() as never);
+    expect(res.status).toBe(200);
+    expect(store.docs).toHaveLength(1);
+    expect(store.chunks[0]!.text).toContain("garantia");
+    expect(sent.at(-1)).toContain("parecer"); // doc_ready names the file
+
+    aiOverride = makeAi("A multa é de quarenta por cento [1].");
+    await worker.fetch(webhook(cmdUpdate(31, "/ask qual a multa rescisória?")), env() as never);
+    expect(sent.some((s) => s.includes("quarenta por cento [1]"))).toBe(true);
+  });
+
+  it("legacy .doc (not OOXML) is refused with the format message", async () => {
+    await worker.fetch(webhook(docUpdate(32, "antigo.doc")), env() as never);
+    expect(store.docs).toHaveLength(0);
+    expect(sent.at(-1)).toContain(".docx");
   });
 });
 
