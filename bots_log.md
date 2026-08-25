@@ -1,5 +1,20 @@
 # Bots Log — registro de execução
 
+## 2026-08-24 ~21:50 UTC-3 — Tick: auditoria ClipGrab serverless (#19)
+- Diretiva do dono re-verificada ponto a ponto contra main @ 29de7f3: NADA a construir.
+  - Sem VM Oracle/Cobalt self-host em nenhum path ativo; resolvers TikTok+IG isolados
+    em módulos próprios COM teste (hydration PRIMARY, feed API c/ KV cooldown pós-429);
+    IG via embed JSON público (payload contextJSON crawler-UA).
+  - YouTube FORA do bot: stub documentado (ToS Cobalt público proíbe uso comercial),
+    resposta honesta "coming soon"; roadmap Deno Deploy + youtube.js no README e deploy.md §7.
+  - Modelo direct-link confirmado (bot nunca hospeda mídia → zero storage/banda nosso).
+- Docs conferidos: apps/clipgrab/README.md (limitações honestas + arquitetura + estratégia
+  429), BOTS_EMPIRE.md (seção ClipGrab = decisão 2026-08-24, fora do repo), packages core
+  completos (credits/stars/auth/ratelimit/i18n/license_hmac), infra/schema.d1.sql, ci.yml.
+- Verificação: pull --ff-only (31a9580→29de7f3); tsc --noEmit limpo; vitest 201/201
+  (25 arquivos); CI main success no head.
+- Pendente inalterado: deploy real (wrangler login interativo), ONDA 3 travada pelo guardrail.
+
 ## 2026-08-24 ~12:15 UTC-3 — Tick: Instagram resolver corrigido contra payload crawler-only (bug real de produção)
 - **Guardrail**: clone em main @ fb6ecfe, vitest 198/198 verde antes de qualquer mudança.
 - **Bug real descoberto por probe ao vivo** (manutenção reativa prevista na diretiva):
