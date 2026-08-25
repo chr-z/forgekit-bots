@@ -7,6 +7,8 @@
  * timestamp index (honest, never fabricated).
  */
 
+import { fmtStamp } from "./youtube";
+
 export const SUMMARIZE_MODEL_FREE = "@cf/meta/llama-3.1-8b-instruct";
 
 export interface ChatMessage {
@@ -100,6 +102,49 @@ export function reduceMessages(partials: readonly string[], deep: boolean): Chat
 }
 
 /**
+ * Topics pass (roadmap line 35 promises "topicos"). Runs ONLY in deep mode
+ * when the creator gave no chapters: one extra chat call over the timestamp
+ * index producing a coarse table-of-contents. Free-tier call count stays
+ * identical to the pre-topics pipeline.
+ */
+export function topicsMessages(indexText: string): ChatMessage[] {
+  return [
+    { role: "system", content: SYSTEM_PROMPT },
+    {
+      role: "user",
+      content:
+        `Timestamped transcript index:\n\n${indexText}\n\n` +
+        `List the main topics of this video as a table of contents, one per line, ` +
+        `in this exact format:\n- [mm:ss] Short topic name\n` +
+        `Use the FIRST block timestamp where each topic starts. Write between 3 and 8 topics. ` +
+        `No intro, no outro.`,
+    },
+  ];
+}
+
+/** Lenient parse of the topics reply ("- [mm:ss] Topic", stamps optional). */
+export function parseTopics(raw: string): { start?: number; label: string }[] {
+  const items: { start?: number; label: string }[] = [];
+  for (const line of raw.split("\n")) {
+    const m = line.match(/^\s*[-•*]?\s*\[?(\d{1,2}):([0-5]\d)(?::([0-5]\d))?\]?\s+(.{4,120}?)\s*$/);
+    if (!m) continue;
+    if (!/^[\p{L}\p{N}]/u.test(m[4]!)) continue;
+    const seconds =
+      m[3] !== undefined
+        ? parseInt(m[1]!, 10) * 3600 + parseInt(m[2]!, 10) * 60 + parseInt(m[3], 10)
+        : parseInt(m[1]!, 10) * 60 + parseInt(m[2]!, 10);
+    items.push({ start: seconds, label: m[4]! });
+  }
+  return items.length >= 3 ? items.slice(0, 8) : [];
+}
+
+export interface AiSummaryResult {
+  summary: ParsedSummary;
+  /** Coarse table of contents — deep mode only, [] when unavailable. */
+  topics: { start?: number; label: string }[];
+}
+
+/**
  * Full pipeline. Returns null when the AI produced nothing usable
  * (caller then tries the extractive fallback).
  */
@@ -108,16 +153,35 @@ export async function aiSummarize(
   model: string,
   chunks: readonly string[],
   deep: boolean,
-): Promise<ParsedSummary | null> {
+  opts: { topics?: boolean; indexText?: string } = {},
+): Promise<AiSummaryResult | null> {
   const partials: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
     const text = await chat(ai, model, mapMessages(chunks[i]!, i + 1, chunks.length));
     if (text.trim()) partials.push(text.trim());
   }
   if (!partials.length) return null;
-  const raw =
-    partials.length === 1 && !deep ? partials[0]! : await chat(ai, model, reduceMessages(partials, deep));
-  return parseModelSummary(raw);
+  let raw: string;
+  try {
+    raw =
+      partials.length === 1 && !deep
+        ? partials[0]!
+        : await chat(ai, model, reduceMessages(partials, deep));
+  } catch {
+    return null;
+  }
+  const summary = parseModelSummary(raw);
+  if (!summary) return null;
+  // Topics are a bonus pass: a failure here must never fail the summary.
+  let topics: AiSummaryResult["topics"] = [];
+  if (deep && opts.topics && opts.indexText) {
+    try {
+      topics = parseTopics(await chat(ai, model, topicsMessages(opts.indexText)));
+    } catch {
+      topics = [];
+    }
+  }
+  return { summary, topics };
 }
 
 /**
@@ -154,8 +218,13 @@ function fmtDuration(seconds?: number): string {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-/** Compose the Telegram reply from meta + parsed summary. */
-export function renderSummary(meta: VideoMeta, summary: ParsedSummary, deep: boolean): string {
+/** Compose the Telegram reply from meta + parsed summary (+ optional topics/chapters block). */
+export function renderSummary(
+  meta: VideoMeta,
+  summary: ParsedSummary,
+  deep: boolean,
+  extras = "",
+): string {
   const header = [`📹 ${meta.title ?? "YouTube video"}`];
   if (meta.author) header.push(`👤 ${meta.author}`);
   const dur = fmtDuration(meta.durationSeconds);
@@ -166,6 +235,19 @@ export function renderSummary(meta: VideoMeta, summary: ParsedSummary, deep: boo
   if (summary.bullets.length) {
     parts.push(summary.bullets.map((b) => `• ${b}`).join("\n"), "");
   }
+  if (extras) parts.push(extras.replace(/^\n+/, ""), "");
   if (deep) parts.push("(modo profundo)");
   return parts.join("\n").trim();
+}
+
+/** Render AI topics as a section block shaped like creator chapters ("" when empty). */
+export function renderTopics(topics: readonly { start?: number; label: string }[]): string {
+  if (!topics.length) return "";
+  return [
+    "",
+    "📚 Topicos:",
+    ...topics.map((tp) =>
+      tp.start === undefined ? `  ${tp.label}` : `  ${fmtStamp(tp.start)} ${tp.label}`,
+    ),
+  ].join("\n");
 }

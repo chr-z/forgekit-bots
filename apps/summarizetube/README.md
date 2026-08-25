@@ -16,7 +16,13 @@ with `[mm:ss]` timestamps and the cleaned-up transcript.
    the summary carries a `[mm:ss]` citation resolved against the real cue
    timeline. **Deep mode** (Pro) runs more chunks per video for longer,
    denser summaries.
-4. **`/transcript` (Pro)** — the cleaned transcript is cached alongside the
+4. **Topics / chapters section (`📚 Topicos:`)** — when the creator listed
+   chapters in the description (the `0:00 Intro` format YouTube itself
+   uses), they are parsed deterministically and attached to every summary at
+   zero AI cost; otherwise deep-mode summaries get a coarse table of
+   contents from one extra AI pass over the timestamp index (Pro only —
+   free-tier call count is unchanged).
+5. **`/transcript` (Pro)** — the cleaned transcript is cached alongside the
    summary and can be re-delivered at any time within 7 days: fully inline
    when it fits a message, otherwise a paragraph-boundary preview plus a
    `.txt` file; `/transcript pdf` renders a real PDF through the shared
@@ -32,8 +38,9 @@ Failures never charge anything.
   are refused — we never invent content we cannot actually read.
 - YouTube changes its player surface without notice; each step degrades to
   an honest failure message and gets fixed reactively.
-- Chapters are derived from the caption timeline, not from the description
-  metadata.
+- Chapters/topics: description-based chapters are preferred when present;
+  the AI topics pass only runs in deep mode. The PDF export still ships
+  TLDR + key points.
 
 ## Pricing
 
