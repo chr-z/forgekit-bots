@@ -1,7 +1,7 @@
 # DocuMind
 
-Send a **PDF or text file** to the bot, then ask questions about it — answers
-cite the exact passages (`[1]`, `[2]`).
+Send a **PDF, DOCX or text file** to the bot, then ask questions about it —
+answers cite the exact passages (`[1]`, `[2]`).
 
 ## How it works (no paid infra)
 
@@ -10,6 +10,11 @@ cite the exact passages (`[1]`, `[2]`).
    - PDFs: pure-TypeScript extractor — finds `stream…endstream` payloads,
      inflates `FlateDecode` with the Workers-native `DecompressionStream`,
      and pulls text from `Tj/TJ` show-text operators. No wasm, no binaries.
+   - DOCX (Office Open XML): pure-TypeScript ZIP reader — walks the central
+     directory, inflates raw-deflate entries (`DecompressionStream("deflate-raw")`),
+     verifies CRC-32 of every part and converts `word/document.xml`
+     (+header/footer parts) to text honoring paragraphs, tabs and breaks.
+     Legacy binary `.doc` is NOT supported.
    - Text files (.txt/.md/.csv/.log/json): decoded as UTF-8.
 2. **Index** — text is split into sentence-packed numbered chunks and stored
    in D1 (`dm_docs`, `dm_chunks`) alongside the shared credits ledger.
@@ -24,15 +29,17 @@ marginal cost per question by construction.
 
 ## Commands
 
-- attach a **PDF/txt** → indexed (`/docs`, `/use <id>`, `/forget <id|all>`)
+- attach a **PDF/DOCX/txt** → indexed (`/docs`, `/use <id>`, `/forget <id|all>`)
 - `/ask <question>` → answer citing exact passages `[1]`, `[2]`
 - `/export [pdf]` *(Pro)* → re-renders the last answered question as a real
   PDF document (pure-TS shared writer, sanitized filename, 7-day window)
 
 ## Honest limitations
 
-- **Scanned/image-only PDFs are refused** ("no readable text") — we never
-  invent content from documents we cannot actually read.
+- Scanned/image-only PDFs are refused ("no readable text") — we never
+  invent content from documents we cannot actually read. The same applies
+  to DOCX containers with empty/text-less bodies or corrupted entries
+  (CRC mismatch refuses the whole file — no partial guesses).
 - Pagination is approximate: one index unit per content stream, not per
   visual page.
 - Exotic PDF encodings (non-Flate filters like LZW/DCT, subsetted CMaps)
@@ -52,7 +59,7 @@ Pro: **300 Stars / 30 days** · Credit pack: **150 Stars = 150 questions**
 
 ## Commands
 
-- attach a `.pdf`/`.txt` file → indexes it
+- attach a `.pdf`/`.docx`/`.txt` file → indexes it
 - `/ask <question>` (alias `/q`) — ask the active (latest) document
 - `/docs`, `/use <id>`, `/forget <id>|all` — library management
 - `/buy` — Pro + credit packs

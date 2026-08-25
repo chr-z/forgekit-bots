@@ -1,5 +1,45 @@
 # Bots Log — registro de execução
 
+## Wave 2 Pro-increment tick #8 (25/08 ~11:15 UTC-3) — DocuMind DOCX ingest SHIPPED via PR (264/264)
+- Guardrail cumprido: worktree work_forgekit_w2 em feature/dm-docx, suite base
+  verde antes do trabalho; sem PRs abertos (`gh pr list` vazio); nenhum worker
+  vivo no repo (checado via Win32_Process + mtime — tick morto das 09h deixou
+  o módulo pela metade, sem testes nem commit; este tick completou e verificou).
+- Gap da roadmap fechado: BOTS_ROADMAP.md linha 41 promete "Manda PDF/**docx**"
+  pro DocuMind — só pdf/text existiam. ONDA 2 continua 100% coberta.
+- feat apps/documind/src/docx.ts: extrator OOXML puro-TS — leitor de central
+  directory ZIP escrito byte-a-byte (EOCD scan c/ comentário, entries method
+  0/8), inflate raw-deflate via DecompressionStream("deflate-raw"), CRC-32
+  verificado por entrada (tabela 256), conversão w:p/w:t/w:tab/w:br/w:cr →
+  texto com decode de entidades XML; partes lidas: document/header1/footer1.
+  Falha honesta: container inválido/corrompido/sem texto => Error("no_text"/
+  "corrupt_entry") mapeado pra no_text/failed — nunca conteúdo inventado.
+- **BUG real corrigido pré-merge**: defaultInflate recebia `bytes.buffer`
+  (ArrayBuffer inteiro) em vez da view subarray — com byteOffset > 0 todo docx
+  real falharia como corrompido. Fix: Blob([view]) respeita os limites da view.
+- feat ingest.ts: classifyAttachment ganha kind "docx" (extensão .docx OU mime
+  OOXML; .doc legado fica fora) + branch de extração com magic "PK" + try/catch
+  honesto. index.ts: mensagens unsupported_format EN/pt-BR atualizadas.
+- Testes novos (+19 asserts): docx.test.ts (12 — CRC vector canônico 0xCBF43926,
+  entidades, gluing runs/tabs/breaks, blank paragraphs interiores, central dir,
+  deflate + CRC, STORED byte-exact, lixo não-zip, ordem document-first entre
+  partes, bit-3 data descriptor resolve via central directory, corrupção =>
+  corrupt_entry, size mentindo/method exótico => corrupt_entry, sem texto =>
+  no_text); ingest.test.ts (+4 — classify docx ext/mime/.doc fora; happy path
+  persistindo chunks c/ tab+entidade; fake PK / corpo vazio / corrompido sem
+  persistir nada); index.test.ts (+3 — webhook aceita parecer.docx e responde
+  /ask citando dele; antigo.doc recusado c/ msg de formato).
+- Fixture builder buildDocxBytes() em testhelpers.ts: escreve ZIPs reais
+  (local headers + central directory + EOCD) com opções de defeito controlado
+  (stored/data descriptor/corrupt payload/bad size/bad method/document vazio)
+  — exercita o parser contra layouts genuínos, não mocks.
+- Docs: README da frota (PDF/**DOCX**/text), README do app (como funciona,
+  comandos, limitações honestas incl. .doc legado fora).
+- Verificação: Vitest **264/264 verde** (33 arquivos, eram 245),
+  `tsc -p tsconfig.base.json --noEmit` limpo; CI tem que passar no PR antes
+  do merge.
+
+
 ## Wave 2 Pro-increment tick #7 (25/08 ~08:00 UTC-3) — SummarizeTube /transcript SHIPPED via PR (245/245)
 - Guardrail cumprido: clone fresh de main @ 0872f8c, npm ci, suite 234/234 verde,
   sem PRs abertos de outros workers no momento do tick (`gh pr list` vazio).
