@@ -170,6 +170,8 @@ export interface CapturingFetchOpts {
   fileBytes?: Uint8Array;
   /** Collected sendMessage texts (in order). */
   sent: string[];
+  /** Collected sendDocument files (in order). */
+  docs?: { name: string; body: ArrayBuffer }[];
 }
 
 /** Global-fetch fake: Telegram getFile/download + outgoing message capture. */
@@ -192,6 +194,12 @@ export function makeCaptureFetch(opts: CapturingFetchOpts): typeof fetch {
       }
       opts.sent.push(text);
       return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }));
+    }
+    if (url.includes("/sendDocument") && opts.docs) {
+      const form = init?.body as FormData;
+      const file = form.get("document") as unknown as File;
+      opts.docs.push({ name: file.name, body: await file.arrayBuffer() });
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 2 } }));
     }
     return new Response("nf", { status: 404 });
   };

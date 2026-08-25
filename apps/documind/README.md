@@ -22,6 +22,13 @@ Deliberate simplification: retrieval is keyword scoring, not embeddings —
 Vectorize's free allowance requires a paid Workers plan in practice. Zero
 marginal cost per question by construction.
 
+## Commands
+
+- attach a **PDF/txt** → indexed (`/docs`, `/use <id>`, `/forget <id|all>`)
+- `/ask <question>` → answer citing exact passages `[1]`, `[2]`
+- `/export [pdf]` *(Pro)* → re-renders the last answered question as a real
+  PDF document (pure-TS shared writer, sanitized filename, 7-day window)
+
 ## Honest limitations
 
 - **Scanned/image-only PDFs are refused** ("no readable text") — we never
