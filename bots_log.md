@@ -561,3 +561,27 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Decisao: decima SETIMA auditoria consecutiva confirmando diretiva 100%
   implementada. Nenhum codigo novo. Bloqueio real inalterado: deploy real
   exige wrangler login interativo do owner (cron nao pode logar).
+
+## Auditoria #18 — ONDA 2 worker tick (24/08 ~21:30) — diretiva reenviada, nada a construir
+- Diretiva: construir UM bot da ONDA 2 (SummarizeTube/DocuMind/VoiceClone),
+  reusando packages/core, wrangler.toml + handlers + Vitest (min 8 asserts) + CI.
+- Verificacao substantiva no main (31a9580), contra os requisitos exatos:
+  * summarizetube: youtube.ts pure-JS (ytInitialPlayerResponse brace-match +
+    timedtext fallback) + Workers AI; free 3/dia, Pro deep mode; catalogo
+    Stars-only; suíte própria (youtube/summarizer/index).
+  * documind: pdf.ts TS-puro + ingest + rag.ts; FREE_DOC_LIMIT=2 /
+    FREE_QUESTION_LIMIT=10 por janela; Stars-only; Vectorize evitado de forma
+    documentada.
+  * voiceclone: escopo conservador (so canal onde o bot e admin — not_admin
+    tratado), cron */15 SO drena retry queue, FREE_TERMS=1 / Pro 20 termos,
+    Stars-only.
+- Padrao do builder principal respeitado em todos: apps/<nome>/ com
+  wrangler.toml (bindings AI/D1/KV/cron quando aplicavel), handlers, testes
+  bem acima do minimo de 8 asserts.
+- Guardrail ONDA 1: pull --ff-only ok; **Vitest 201/201 verde** (25 arquivos);
+  apps da ONDA 2 somam 106 testes passando isolados; CI roda `npm test` na
+  raiz => cobre os 6 apps. Nada a implementar nesta diretiva (oitava
+  auditoria consecutiva do mesmo estado completo).
+- Bloqueio real inalterado: deploy real de cada bot exige wrangler login
+  interativo do owner (cron nao consegue autenticar). Proximo passo util =
+  owner logar ou delegar credencial via GitHub Secrets p/ deploy CI-automatizado.
