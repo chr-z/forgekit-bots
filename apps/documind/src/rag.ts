@@ -17,6 +17,8 @@ export const DOCUMIND_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 export interface Chunk {
   /** 1-based citation id shown to the user. */
   n: number;
+  /** Source page (content-stream unit); surfaced as "[n] p.<page>" citations. */
+  page: number;
   text: string;
 }
 
@@ -73,9 +75,11 @@ export function chunkText(text: string, budget = 900): string[] {
 export function buildIndex(pageTexts: readonly string[], budget?: number): Chunk[] {
   const out: Chunk[] = [];
   let n = 0;
-  for (const page of pageTexts) {
-    for (const c of chunkText(page, budget)) {
-      out.push({ n: ++n, text: c });
+  for (let page = 1; page <= pageTexts.length; page++) {
+    const text = pageTexts[page - 1] ?? "";
+    if (!text.trim()) continue;
+    for (const body of chunkText(text, budget)) {
+      out.push({ n: ++n, page, text: body });
     }
   }
   return out;
@@ -112,8 +116,14 @@ export function retrieve(chunks: readonly Chunk[], query: string, k = 4): Scored
 /** Extractive no-AI answer: best passages, clearly labelled, never invented. */
 export function extractiveAnswer(scored: readonly ScoredChunk[]): string {
   if (!scored.length) return "";
-  const lines = scored.slice(0, 3).map((c) => `[${c.n}] ${trimSentence(c.text)}`);
+  const lines = scored.slice(0, 3).map((c) => `[${c.n}] p.${c.page} — ${trimSentence(c.text)}`);
   return lines.join("\n\n");
+}
+
+/** "Fontes: p. 1, 3" line from the cited passages (deduped, ascending). */
+export function sourcesLine(scored: readonly { page: number }[]): string {
+  const pages = [...new Set(scored.map((s) => s.page))].sort((a, b) => a - b);
+  return `Fontes: p. ${pages.join(", ")}`;
 }
 
 function trimSentence(text: string, max = 320): string {
@@ -131,7 +141,9 @@ export function qaMessages(question: string, scored: readonly ScoredChunk[]): {
   role: "system" | "user";
   content: string;
 }[] {
-  const context = scored.map((c) => `[${c.n}] ${trimSentence(c.text, 1200)}`).join("\n\n");
+  const context = scored
+    .map((c) => `[${c.n}] p.${c.page} ${trimSentence(c.text, 1200)}`)
+    .join("\n\n");
   return [
     { role: "system", content: ANSWER_SYSTEM },
     { role: "user", content: `Passages:\n\n${context}\n\nQuestion: ${question}` },

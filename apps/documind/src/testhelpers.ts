@@ -20,6 +20,24 @@ export async function buildPdfBytes(): Promise<Uint8Array> {
   return bytes;
 }
 
+/** Two content streams = two real pages, so page-aware citations are testable. */
+export async function buildTwoPagePdfBytes(): Promise<Uint8Array> {
+  const contents = [`BT (${PDF_TEXT}) Tj ET`, "BT (O suporte atende em dias uteis.) Tj ET"];
+  let s = "%PDF-1.4\n";
+  for (const content of contents) {
+    const cs = new CompressionStream("deflate"); // fresh stream per page (single-use)
+    const buf = await new Response(new Blob([content]).stream().pipeThrough(cs)).arrayBuffer();
+    const z = new Uint8Array(buf);
+    let bin = "";
+    for (const b of z) bin += String.fromCharCode(b);
+    s += `<< /Length ${z.length} /Filter /FlateDecode >>\nstream\n${bin}\nendstream\n`;
+  }
+  s += "%%EOF";
+  const bytes = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+  return bytes;
+}
+
 export interface DocRowStub {
   id: number;
   tg_user_id: number;
@@ -31,7 +49,7 @@ export interface DocRowStub {
 /** D1 stub covering every statement the worker + credits package issue. */
 export function makeDocD1() {
   const docs: DocRowStub[] = [];
-  const chunks: { doc_id: number; n: number; text: string }[] = [];
+  const chunks: { doc_id: number; n: number; page: number; text: string }[] = [];
   const usage: unknown[][] = [];
   const subs = new Map<number, string>();
   const balances = new Map<number, number>();
@@ -83,8 +101,8 @@ export function makeDocD1() {
           return { meta: { last_row_id: row.id } };
         }
         if (sql.startsWith("INSERT INTO dm_chunks")) {
-          const [docId, n, text] = args as [number, number, string];
-          chunks.push({ doc_id: docId, n, text });
+          const [docId, n, page, text] = args as [number, number, number, string];
+          chunks.push({ doc_id: docId, n, page, text });
           return { meta: {} };
         }
         if (sql.startsWith("DELETE FROM dm_chunks WHERE doc_id IN")) {
@@ -148,13 +166,13 @@ export function makeDocD1() {
             results: docs.filter((d) => d.tg_user_id === uid).sort((a, b) => b.id - a.id).slice(0, 10),
           } as { results: T[] };
         }
-        if (sql.includes("SELECT n, text FROM dm_chunks")) {
+        if (sql.includes("SELECT n, page, text FROM dm_chunks")) {
           const docId = args[0] as number;
           return {
             results: chunks
               .filter((c) => c.doc_id === docId)
               .sort((x, y) => x.n - y.n)
-              .map((c) => ({ n: c.n, text: c.text })),
+              .map((c) => ({ n: c.n, page: c.page, text: c.text })),
           } as { results: T[] };
         }
         throw new Error(`unexpected all(): ${sql}`);

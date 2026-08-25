@@ -5,7 +5,7 @@ import { buildDocxBytes } from "./testhelpers";
 /** In-memory D1 stub covering exactly the statements ingestDocument issues. */
 function makeD1() {
   const docs: { id: number; tg_user_id: number; title: string; n_pages: number; n_chunks: number }[] = [];
-  const chunks: { doc_id: number; n: number; text: string }[] = [];
+  const chunks: { doc_id: number; n: number; page: number; text: string }[] = [];
   let nextId = 1;
   function prepare(sql: string) {
     let args: unknown[] = [];
@@ -22,8 +22,8 @@ function makeD1() {
           return { meta: { last_row_id: id } };
         }
         if (sql.startsWith("INSERT INTO dm_chunks")) {
-          const [docId, n, text] = args as [number, number, string];
-          chunks.push({ doc_id: docId, n, text });
+          const [docId, n, page, text] = args as [number, number, number, string];
+          chunks.push({ doc_id: docId, n, page, text });
           return { meta: {} };
         }
         throw new Error(`unexpected sql: ${sql}`);

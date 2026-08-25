@@ -171,7 +171,10 @@ export async function ingestDocument(
     const res = await ins.run();
     const docId = res.meta.last_row_id ?? 0;
     for (const c of chunks) {
-      await deps.db.prepare("INSERT INTO dm_chunks (doc_id, n, text) VALUES (?, ?, ?)").bind(docId, c.n, c.text).run();
+      await deps.db
+        .prepare("INSERT INTO dm_chunks (doc_id, n, page, text) VALUES (?, ?, ?, ?)")
+        .bind(docId, c.n, c.page, c.text)
+        .run();
     }
     return {
       ok: true,

@@ -120,10 +120,12 @@ describe("/export happy path through the real ask flow", () => {
       docTitle: string;
       question: string;
       answer: string;
+      sourcesLine?: string;
     };
     expect(cached.docTitle).toBe("contrato");
     expect(cached.question).toContain("garantia");
     expect(cached.answer).toContain("[1]");
+    expect(cached.sourcesLine).toBe("Fontes: p. 1"); // page provenance persists
     expect(sent.some((s) => s.includes("doze meses"))).toBe(true);
 
     const repliesBefore = sent.length;
@@ -135,6 +137,14 @@ describe("/export happy path through the real ask flow", () => {
     expect(raw.startsWith("%PDF-1.4")).toBe(true);
     expect(raw.trimEnd().endsWith("%%EOF")).toBe(true);
     expect(raw).toContain("/Filter /FlateDecode");
+    // The sources line is really rendered inside the PDF content stream.
+    const payload = raw.slice(raw.indexOf("stream\n") + 7, raw.lastIndexOf("endstream")).trimEnd();
+    const z = new Uint8Array(payload.length);
+    for (let i = 0; i < payload.length; i++) z[i] = payload.charCodeAt(i);
+    const inflated = await new Response(
+      new Blob([z]).stream().pipeThrough(new DecompressionStream("deflate")),
+    ).arrayBuffer();
+    expect(new TextDecoder().decode(inflated)).toContain("Fontes: p. 1");
   });
 
   it("sanitizes hostile document titles in the filename", async () => {
