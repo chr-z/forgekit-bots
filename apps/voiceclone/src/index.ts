@@ -23,16 +23,25 @@ import { matchTerms, parseChannelArg, normalizeText } from "./matcher";
 import { enqueueAlert, makeAlert, renderAlert, takeAlerts, type PendingAlert } from "./alerts";
 import {
   addTerm,
+  clearAlertHistory,
   countTerms,
   deleteChannel,
   getChannelByChat,
   listChannelsByOwner,
   listTerms,
+  listAlertHistory,
   loadWatchlist,
+  pruneAlertHistory,
+  recordAlert,
   removeTerm,
   upsertChannel,
   type ChannelRow,
 } from "./store";
+
+/** Alert-history retention: rows kept per user (Pro), pruned after each insert. */
+export const HISTORY_MAX_ROWS = 200;
+/** Free users keep a tiny tail so an upgrade instantly surfaces recent alerts. */
+export const HISTORY_FREE_KEEP = 5;
 
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -99,6 +108,13 @@ export const MESSAGES = {
     bad_channel: "That doesn't look like a channel link or @handle. Try https://t.me/durov or @durov.",
     bad_term: "Send the keyword as text, e.g. /addterm pagamento.",
     usage_addchannel: "Usage: /addchannel <https://t.me/link | @handle | -100id>",
+    history_empty:
+      "No alerts recorded yet. I save every alert here once your channels fire — Pro keeps the last 200.",
+    history_page:
+      "📜 Alert history ({page}/{pages}) — {total} total:\n{items}",
+    history_pro_only:
+      "Alert history is a Pro feature — you have {n} recent alert(s) saved, upgrade with /buy to browse them all.",
+    history_cleared: "History cleared ({n} rows removed).",
   },
   "pt-BR": {
     start:
@@ -130,6 +146,13 @@ export const MESSAGES = {
     bad_channel: "Isso não parece um link de canal ou @handle. Tenta https://t.me/durov ou @durov.",
     bad_term: "Manda a palavra-chave como texto, ex.: /addterm pagamento.",
     usage_addchannel: "Uso: /addchannel <link t.me | @handle | -100id>",
+    history_empty:
+      "Nenhum alerta registrado ainda. Salvo cada alerta aqui quando seus canais dispararem — o Pro guarda os últimos 200.",
+    history_page:
+      "📜 Histórico de alertas ({page}/{pages}) — {total} no total:\n{items}",
+    history_pro_only:
+      "Histórico é recurso Pro — você tem {n} alerta(s) recente(s) salvos, faz upgrade com /buy para ver todos.",
+    history_cleared: "Histórico limpo ({n} registros removidos).",
   },
 };
 
@@ -193,6 +216,44 @@ export interface ScanOutcome {
   notified: number[];
 }
 
+/** Telegram message hard cap; keep rendered history lines well inside it. */
+const TG_MESSAGE_CAP = 4096;
+
+/**
+ * Render one page of the alert history (newest first).
+ * Pure so the pagination math stays unit-testable without D1.
+ */
+export function renderHistoryPage(
+  rows: {
+    terms: string;
+    title: string;
+    excerpt: string;
+    created_at: string;
+    delivered: number;
+  }[],
+  page: number,
+  pages: number,
+  total: number,
+  locale: string,
+): string {
+  const items = rows
+    .map((r) => {
+      const ex = r.excerpt.length > 48 ? `${r.excerpt.slice(0, 45)}…` : r.excerpt;
+      return (
+        `• ${r.terms} — ${r.title} · ${r.created_at}${r.delivered ? "" : " · retry"}\n` +
+        `  ${ex}`
+      );
+    })
+    .join("\n");
+  const body = t(MESSAGES, parseLocale(locale), "history_page", {
+    page,
+    pages,
+    total,
+    items: items || "—",
+  });
+  return body.length > TG_MESSAGE_CAP ? `${body.slice(0, TG_MESSAGE_CAP - 1)}…` : body;
+}
+
 /** KV marker so Telegram webhook redeliveries never double-alert. */
 async function alreadySeen(kv: KVNamespace, chatId: number, messageId: number): Promise<boolean> {
   const key = `vc:seen:${chatId}:${messageId}`;
@@ -206,7 +267,13 @@ async function alreadySeen(kv: KVNamespace, chatId: number, messageId: number): 
  * terms -> matcher -> DM the owner (queue for retry when sending fails).
  */
 export async function handleChannelPost(
-  deps: { db: D1Database; kv: KVNamespace; bot: Pick<BotApi, "sendMessage"> },
+  deps: {
+    db: D1Database;
+    kv: KVNamespace;
+    bot: Pick<BotApi, "sendMessage">;
+    /** Pro check for the alert owner (drives the history retention cap). */
+    getPro: (ownerId: number) => Promise<boolean>;
+  },
   chatId: number,
   messageId: number,
   text: string,
@@ -233,6 +300,24 @@ export async function handleChannelPost(
   }
   if (!delivered) {
     await enqueueAlert(deps.kv, makeAlert(registered.owner_id, message));
+  }
+  // History snapshot — best-effort: never blocks delivery or the ack.
+  try {
+    await recordAlert(
+      deps.db,
+      registered.owner_id,
+      chatId,
+      registered.title,
+      hits,
+      text.length > 200 ? `${text.slice(0, 197)}…` : text,
+      delivered,
+    );
+    const keep = (await deps.getPro(registered.owner_id))
+      ? HISTORY_MAX_ROWS
+      : HISTORY_FREE_KEEP;
+    await pruneAlertHistory(deps.db, registered.owner_id, keep);
+  } catch {
+    /* history is a convenience; the alert already went out */
   }
   await deps.db
     .prepare("INSERT INTO usage_log (bot, tg_user_id, action, detail) VALUES ('voiceclone', ?, 'alert', ?)")
@@ -314,7 +399,14 @@ export default {
 
       if (route.kind === "channel_post") {
         await handleChannelPost(
-          { db: env.DB, kv: env.KV, bot },
+          {
+            db: env.DB,
+            kv: env.KV,
+            bot,
+            // Pro tier picks the history retention cap; resolved lazily
+            // because the owner id is only known after the channel lookup.
+            getPro: (ownerId) => isPro(env.DB, ownerId),
+          },
           route.ctx.chatId,
           route.ctx.messageId,
           route.ctx.text,
@@ -469,6 +561,38 @@ export default {
           title: resolved.channel.title,
           terms: terms.length ? terms.join(", ") : "—",
         });
+        return new Response("ok");
+      }
+
+      if (command === "/history") {
+        const page = Math.max(1, parseInt(args, 10) || 1);
+        if (!pro) {
+          const { total } = await listAlertHistory(env.DB, user.id, 0, 0);
+          await send("history_pro_only", { n: total });
+          return new Response("ok");
+        }
+        const pageSize = 10;
+        const { rows, total } = await listAlertHistory(
+          env.DB,
+          user.id,
+          pageSize,
+          (page - 1) * pageSize,
+        );
+        if (total === 0) {
+          await send("history_empty");
+          return new Response("ok");
+        }
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        await bot.sendMessage(
+          chatId,
+          renderHistoryPage(rows, page, pages, total, user.language_code ?? "en"),
+        );
+        return new Response("ok");
+      }
+
+      if (command === "/clearhistory") {
+        const n = await clearAlertHistory(env.DB, user.id);
+        await send("history_cleared", { n });
         return new Response("ok");
       }
 

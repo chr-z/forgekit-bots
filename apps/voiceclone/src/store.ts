@@ -117,3 +117,86 @@ export async function loadWatchlist(
   }
   return map;
 }
+
+/**
+ * Alert history (Pro feature): snapshot of every fired alert.
+ *
+ * Recording is best-effort at scan time — a failed history insert must
+ * never break alert delivery, so the caller wraps it in try/catch.
+ */
+export interface AlertRow {
+  id: number;
+  chat_id: number;
+  title: string;
+  /** Comma-joined matched terms. */
+  terms: string;
+  /** Post excerpt snapshot (truncated by the caller). */
+  excerpt: string;
+  /** 1 = DM delivered, 0 = went to the retry queue. */
+  delivered: number;
+  created_at: string;
+}
+
+export async function recordAlert(
+  db: D1Database,
+  ownerId: number,
+  chatId: number,
+  title: string,
+  terms: readonly string[],
+  excerpt: string,
+  delivered: boolean,
+): Promise<void> {
+  await db
+    .prepare(
+      "INSERT INTO vc_alerts (owner_id, chat_id, title, terms, excerpt, delivered) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(ownerId, chatId, title, terms.join(", "), excerpt, delivered ? 1 : 0)
+    .run();
+}
+
+export interface HistoryPage {
+  rows: AlertRow[];
+  total: number;
+}
+
+/** Newest-first page of one owner's alert history. */
+export async function listAlertHistory(
+  db: D1Database,
+  ownerId: number,
+  limit: number,
+  offset: number,
+): Promise<HistoryPage> {
+  const countRow = await db
+    .prepare("SELECT COUNT(*) AS n FROM vc_alerts WHERE owner_id = ?")
+    .bind(ownerId)
+    .first<{ n: number }>();
+  const res = await db
+    .prepare(
+      "SELECT id, chat_id, title, terms, excerpt, delivered, created_at FROM vc_alerts WHERE owner_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+    )
+    .bind(ownerId, limit, offset)
+    .all<AlertRow>();
+  return { rows: res.results, total: countRow?.n ?? 0 };
+}
+
+/** Wipe one owner's history (/clearhistory). Returns rows removed. */
+export async function clearAlertHistory(db: D1Database, ownerId: number): Promise<number> {
+  const res = await db
+    .prepare("DELETE FROM vc_alerts WHERE owner_id = ?")
+    .bind(ownerId)
+    .run();
+  return res.meta.changes ?? 0;
+}
+
+/**
+ * Retention cap: keep only the newest `keep` rows of one owner.
+ * Called right after each insert so storage stays O(plan) forever.
+ */
+export async function pruneAlertHistory(db: D1Database, ownerId: number, keep: number): Promise<void> {
+  await db
+    .prepare(
+      "DELETE FROM vc_alerts WHERE owner_id = ? AND id NOT IN (SELECT id FROM vc_alerts WHERE owner_id = ? ORDER BY id DESC LIMIT ?)",
+    )
+    .bind(ownerId, ownerId, keep)
+    .run();
+}
