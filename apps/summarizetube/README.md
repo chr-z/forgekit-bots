@@ -42,6 +42,7 @@ Failures never charge anything.
 | Summaries | 3 / day | unlimited |
 | Mode | short | deep (more chunks per video) |
 | Transcript | — | `/transcript` (inline, `.txt` or PDF) |
+| Notion export | — | `/connect <token> <page>` links workspace; `/export notion` pushes the last summary as a child page (token never echoed; validated via `api.notion.com/v1/users/me`) |
 
 - **Pro:** 200 Stars / 30 days — unlimited + deep mode + priority queue.
 - **Credit pack:** 150 Stars for 100 extra summaries (never expires).
