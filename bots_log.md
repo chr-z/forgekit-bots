@@ -831,3 +831,9 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Copy EN+pt-BR do /start agora promete página ([1] p.2).
 - Testes +9 (280→285): buildIndex page provenance, skip de página vazia, prompt com p.1, extractive [2] p.2, sourcesLine dedupe/ordem, e2e PDF real de 2 content-streams (fixture novo) citando só p.1, export PDF inflado via DecompressionStream contendo "Fontes: p. 1".
 - Vitest 285/285 (35 files), tsc limpo; secrets só em vars; sem deploy (wrangler login interativo bloqueado, inalterado).
+
+## 2026-08-25 17:05 UTC-3 — Tick diretiva ClipGrab (cron): auditoria — já conforme
+- Diretiva do dono (sem VM Oracle, serverless puro, TikTok/IG resolvers próprios, YouTube fora por ToS do Cobalt público, resposta = link direto): **tudo já implementado** em ticks anteriores (24-25/08).
+- Verificação de hoje: vitest **264/264 verde (33 arquivos)**, tsc -p tsconfig.base.json limpo, CI success no main (run 32873451809, hoje 16:41Z). apps/clipgrab = TikTok+IG com cooldown KV; youtube.ts é stub de recusa documentada; README + deploy.md + BOTS_EMPIRE.md já refletem 'YouTube: coming soon / roadmap Deno Deploy + youtube.js ou parceria de instância'.
+- Único ajuste deste tick: linha desatualizada no BOTS_EMPIRE.md (ordem das estratégias TikTok invertida) corrigida — web hydration primária, feed API watermark-free como fallback c/ cooldown.
+- Pendente inalterado: deploy real dos Workers (wrangler login interativo), bots no BotFather, ONDA 3 travada pelo guardrail (<2 bots no ar, <R$100/mês).
