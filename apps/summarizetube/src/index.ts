@@ -124,7 +124,7 @@ const MESSAGES = {
     transcript_nothing: "Sem transcrição recente — me manda um link do YouTube antes.",
     transcript_more: "(+{chars} caracteres no total) — mandando o resto como arquivo…",
     connect_pro_only: "Exportar pro Notion é recurso Pro. /buy libera.",
-    connect_ok: "Conectado ao Notion ({name}). Agora suas resumos podem ir pro Notion com /export notion.",
+    connect_ok: "Conectado ao Notion ({name}). Agora seus resumos podem ir pro Notion com /export notion.",
     connect_invalid: "Não parece um par token + link de página válido. Formato: /connect <token-da-integração> <url-da-página-no-notion>",
     connect_rejected: "O Notion recusou esse token. Confere o secret da integração e tenta o /connect de novo.",
     notion_not_connected: "Nenhum workspace do Notion conectado ainda. Manda /connect <token-da-integração> <url-da-página> primeiro.",
