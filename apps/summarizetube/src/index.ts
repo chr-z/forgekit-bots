@@ -41,13 +41,16 @@ import {
   cuesToTranscript,
   extractPlayerResponse,
   fetchCaptions,
+  parseChapters,
   parseVideoId,
   pickCaptionTrack,
+  renderChapters,
 } from "./youtube";
 import {
   aiSummarize,
   extractiveFallback,
   renderSummary,
+  renderTopics,
   SUMMARIZE_MODEL_FREE,
 } from "./summarizer";
 
@@ -226,14 +229,28 @@ export async function runSummaryPipeline(
   const deep = input.deep && chunks.length > 1;
 
   let summary = null;
+  let aiTopics: { start?: number; label: string }[] = [];
   if (deps.ai) {
     try {
-      summary = await aiSummarize(deps.ai, model, chunks, deep);
+      const result = await aiSummarize(deps.ai, model, chunks, deep, {
+        topics: deep,
+        indexText,
+      });
+      if (result) {
+        summary = result.summary;
+        aiTopics = result.topics;
+      }
     } catch {
       summary = null;
     }
   }
   summary = summary ?? extractiveFallback(indexText);
+
+  // Roadmap line 35 promises "topicos": prefer the creator's own chapters
+  // from the description (deterministic, zero AI cost); in deep mode fall
+  // back to one extra AI topics pass. Free-tier call count is unchanged.
+  const chapters = parseChapters(playerResponse.videoDetails?.shortDescription);
+  const extras = chapters.length ? renderChapters(chapters) : deep ? renderTopics(aiTopics) : "";
 
   const videoMeta = {
     title: playerResponse.videoDetails?.title,
@@ -246,7 +263,7 @@ export async function runSummaryPipeline(
 
   return {
     ok: true,
-    reply: renderSummary(videoMeta, summary, deep),
+    reply: renderSummary(videoMeta, summary, deep, extras),
     doc: {
       title: videoMeta.title,
       author: videoMeta.author,

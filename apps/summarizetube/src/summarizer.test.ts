@@ -83,7 +83,8 @@ describe("chat + aiSummarize", () => {
     const one = fakeAi(["TLDR: direto.\n- ponto [00:10]"]);
     const r1 = await aiSummarize(one.ai, "m", ["unico chunk"], false);
     expect(one.calls()).toBe(1);
-    expect(r1?.tldr).toBe("direto.");
+    expect(r1?.summary.tldr).toBe("direto.");
+    expect(r1?.topics).toEqual([]); // topics are deep-only
 
     const multi = fakeAi([
       "- parte A [00:05]",
@@ -91,9 +92,9 @@ describe("chat + aiSummarize", () => {
       "TLDR: video sobre A e B.\n- A detalhado [00:05]\n- B detalhado [01:00]",
     ]);
     const r2 = await aiSummarize(multi.ai, "m", ["chunk1", "chunk2"], true);
-    expect(multi.calls()).toBe(3); // 2 maps + 1 reduce
-    expect(r2?.tldr).toBe("video sobre A e B.");
-    expect(r2?.bullets).toHaveLength(2);
+    expect(multi.calls()).toBe(3); // 2 maps + 1 reduce; no indexText => no topics pass
+    expect(r2?.summary.tldr).toBe("video sobre A e B.");
+    expect(r2?.summary.bullets).toHaveLength(2);
   });
 
   it("returns null when the AI produces nothing usable", async () => {

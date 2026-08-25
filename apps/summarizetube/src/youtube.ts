@@ -33,6 +33,8 @@ export interface PlayerResponse {
     title?: string;
     author?: string;
     lengthSeconds?: string;
+    /** Video description — the only reliable source of creator chapters. */
+    shortDescription?: string;
   };
   captions?: {
     playerCaptionsTracklistRenderer?: {
@@ -363,4 +365,60 @@ export function chunkTranscript(transcript: string, maxChars = 12000): string[] 
   }
   if (cur) chunks.push(cur);
   return chunks;
+}
+// --- Creator chapters (roadmap line 35: "pontos-chave, topicos, timestamps") ---
+
+export interface Chapter {
+  /** seconds */
+  start: number;
+  label: string;
+}
+
+const CHAPTER_LINE_RE =
+  /^\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s*[-–—)\].:]*\s*(.{2,80}?)\s*$/;
+
+function hmsToSeconds(h: string | undefined, m: string, s: string): number {
+  return (h ? parseInt(h, 10) : 0) * 3600 + parseInt(m, 10) * 60 + parseInt(s, 10);
+}
+
+/** seconds -> "mm:ss" or "h:mm:ss" (also used by the topics renderer). */
+export function fmtStamp(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const mm = String(m).padStart(h ? 2 : 1, "0");
+  const ss = String(s).padStart(2, "0");
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/**
+ * Parse creator chapters from a video description — the format YouTube
+ * itself uses ("0:00 Intro", "1:23 Setup", optional leading chapter emoji,
+ * one per line). Deterministic, zero AI cost. Returns [] when the
+ * description holds fewer than MIN_CHAPTERS valid ascending stamps.
+ */
+export function parseChapters(description: string | undefined): Chapter[] {
+  if (!description) return [];
+  const found: Chapter[] = [];
+  for (const line of description.split(/\r?\n/)) {
+    const m = CHAPTER_LINE_RE.exec(line.replace(/^[\s•\-–—*]+/, ""));
+    if (!m) continue;
+    const start = hmsToSeconds(m[1], m[2]!, m[3]!);
+    // Reject bare times that are not real stamps (e.g. "10:7") or that do
+    // not advance — YouTube requires strictly increasing chapter starts.
+    if (!m[4] || !/^[\p{L}\p{N}]/u.test(m[4])) continue;
+    const last = found[found.length - 1];
+    if (last && start <= last.start) continue;
+    found.push({ start, label: m[4] });
+  }
+  return found.length >= MIN_CHAPTERS ? found.slice(0, MAX_CHAPTERS) : [];
+}
+
+export const MIN_CHAPTERS = 3;
+export const MAX_CHAPTERS = 12;
+
+/** Render chapters as an indented section block ("" when empty). */
+export function renderChapters(chapters: readonly Chapter[]): string {
+  if (!chapters.length) return "";
+  return ["", "📚 Topicos:", ...chapters.map((c) => `  ${fmtStamp(c.start)} ${c.label}`)].join("\n");
 }
