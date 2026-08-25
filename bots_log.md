@@ -621,3 +621,19 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Suíte completa executada neste tick: **201/201 verde** (25 arquivos).
 - Decisao: nada a implementar — diretiva 100% atendida no main desde e1cabea.
   Bloqueio real inalterado: deploy real exige wrangler login interativo do owner.
+
+## Auditoria #20 — worker tick (24/08 ~23:27) — diretiva ClipGrab serverless reenviada, nada a construir
+- Diretiva: arquitetura sem VM Oracle — resolvers TikTok/IG em TS puro no Worker, resposta = link direto,
+  YouTube fora do bot (ToS Cobalt público), README/BOTS_EMPIRE.md atualizados, restante da frota igual.
+- Verificação substantiva no main (887535e), item a item:
+  * apps/clipgrab/src/resolvers/{tiktok,instagram}.ts isolados com suítes próprias (tiktok 3 estratégias
+    + KV cooldown; IG embed JSON); youtube.ts = stub "coming soon" documentado.
+  * Zero chamadas Cobalt em código (grep limpo; só comentários explicando o descarte).
+  * README Honest limitations + roadmap Deno Deploy/youtube.js; BOTS_EMPIRE.md seção 2 reflete a DECISÃO
+    2026-08-24 (sem VM Oracle); deploy.md seção 7 idem. Resposta = directUrl puro (index.ts) → zero storage/banda.
+  * Restante intacto: packages core (credits/stars/auth/ratelimit/i18n/license_hmac), TranscribeForge,
+    InstaToolkit, VoiceClone, SummarizeTube, DocuMind, infra/schema.d1.sql, deploy.md, CI raiz cobrindo tudo.
+- Guardrail: pull --ff-only ok (origin/main = HEAD); Vitest **201/201 verde** (25 arquivos, 1.82s);
+  CI success no HEAD (run 32797378472). Commits pequenos por módulo no histórico.
+- Decisão: DÉCIMA OITAVA auditoria consecutiva confirmando diretiva 100% implementada. Nenhum código novo.
+  Bloqueio real inalterado: deploy real exige wrangler login interativo do owner (cron não autentica).
