@@ -815,3 +815,10 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Webhook tests: 4 asserts — recusado free, rejeição token, sucesso com url, falha push sem vazamento; fetch roteado entre Telegram + Notion.
 - Vitest 280/280 (35 files); tsc apps/summarizetube limpo; secrets só em vars; no deploy (wrangler login interativo bloqueado).
 - README do app atualizado (linha Notion export); BOTS_ROADMAP.md linha 36 confirmada fechada.
+
+## Tick W2-FINISH-Notion (2026-08-25 ~16:45) — PR #9 merged: SummarizeTube /export notion
+- Branch órfã feature/st-notion-export (worker anterior morreu após push 15:38Z, sem PR/CI) auditada linha a linha e finalizada.
+- Auditoria: probe do token em api.notion.com/v1/users/me ANTES de gravar; token nunca ecoado; batching p/ limite de 100 blocos + 2000 chars/rich_text; i18n EN+pt-BR; 78 asserts novos.
+- Fix próprio: gramática pt-BR connect_ok ('suas resumos' -> 'seus resumos'), 60407e5.
+- Vitest 280/280 (35 files) local + CI success na branch; PR #9 aberto, CI green, merge às 16:40Z (main @ 801d8b0, CI run 32873326056 success).
+- Roadmap ONDA 2 agora 100% fechado INCLUSIVE linha 36 (PDF/Notion). Deploy de produção segue bloqueado só pelo wrangler login interativo do dono.
