@@ -22,7 +22,7 @@ import { renderPdf, type PdfDoc } from "@forgekit/app-shared/pdf";
 import { parseUpdate } from "@forgekit/app-shared/updates";
 
 import { classifyAttachment, ingestDocument } from "./ingest";
-import { DOCUMIND_MODEL, answerQuestion, retrieve } from "./rag";
+import { DOCUMIND_MODEL, answerQuestion, retrieve, sourcesLine } from "./rag";
 
 export interface Env {
   TELEGRAM_BOT_TOKEN: string;
@@ -68,12 +68,14 @@ export interface QaDoc {
   docTitle: string;
   question: string;
   answer: string;
+  /** Rendered "Fontes: p. 1, 3" line kept so exports carry the provenance. */
+  sourcesLine?: string;
 }
 
 const MESSAGES = {
   en: {
     start:
-      "Send me a PDF or text file and ask anything about it — answers cite the exact passages ([1], [2]).\n\nFree: 2 documents + 10 questions every 30 days. /buy for unlimited.",
+      "Send me a PDF or text file and ask anything about it — answers cite the exact passages with page numbers ([1] p.2).\n\nFree: 2 documents + 10 questions every 30 days. /buy for unlimited.",
     not_a_document: "Attach a PDF or text file (as a file, not a photo) and I'll index it.",
     too_large: "File too large — the Telegram cap for bots is 20MB.",
     unsupported_format: "I only read PDF, DOCX and plain-text files for now (.pdf, .docx, .txt, .md, .csv).",
@@ -107,7 +109,7 @@ const MESSAGES = {
   },
   "pt-BR": {
     start:
-      "Me manda um PDF ou arquivo de texto e pergunta qualquer coisa sobre ele — as respostas citam os trechos exatos ([1], [2]).\n\nGrátis: 2 documentos + 10 perguntas a cada 30 dias. /buy para ilimitado.",
+      "Me manda um PDF ou arquivo de texto e pergunta qualquer coisa sobre ele — as respostas citam trechos exatos com a página de origem ([1] p.2).\n\nGrátis: 2 documentos + 10 perguntas a cada 30 dias. /buy para ilimitado.",
     not_a_document: "Anexa um PDF ou arquivo de texto (como arquivo, não como foto) que eu indexo.",
     too_large: "Arquivo grande demais — o limite do Telegram para bots é 20MB.",
     unsupported_format: "Por enquanto eu leio PDF, DOCX e texto puro (.pdf, .docx, .txt, .md, .csv).",
@@ -304,12 +306,14 @@ export default {
         return new Response("ok");
       }
       try {
+        const bullets = qa.answer.split("\n").map((l) => l.trim()).filter(Boolean);
+        if (qa.sourcesLine) bullets.push("", qa.sourcesLine);
         const pdf: PdfDoc = {
           title: qa.docTitle,
           author: "DocuMind",
           tldr: qa.question,
           tldrLabel: "Question",
-          bullets: qa.answer.split("\n").map((l) => l.trim()).filter(Boolean),
+          bullets,
         };
         const bytes = await renderPdf(pdf);
         const safeTitle =
@@ -394,11 +398,11 @@ export default {
         await bot.sendMessage(chatId, M("no_docs_yet"));
         return new Response("ok");
       }
-      const rows = await env.DB.prepare("SELECT n, text FROM dm_chunks WHERE doc_id = ? ORDER BY n")
+      const rows = await env.DB.prepare("SELECT n, page, text FROM dm_chunks WHERE doc_id = ? ORDER BY n")
         .bind(doc.id)
-        .all<{ n: number; text: string }>()
-        .catch(() => ({ results: [] as { n: number; text: string }[] }));
-      const chunks = (rows.results ?? []).map((r) => ({ n: r.n, text: r.text }));
+        .all<{ n: number; page: number; text: string }>()
+        .catch(() => ({ results: [] as { n: number; page: number; text: string }[] }));
+      const chunks = (rows.results ?? []).map((r) => ({ n: r.n, page: r.page, text: r.text }));
       const scored = retrieve(chunks, question);
       if (!scored.length) {
         await bot.sendMessage(chatId, M("no_match"));
@@ -421,6 +425,7 @@ export default {
       }
 
       const { answer } = await answerQuestion(env.AI, DOCUMIND_MODEL, question, scored);
+      const sources = sourcesLine(scored);
       await env.DB.prepare("INSERT INTO usage_log (bot, tg_user_id, action, detail) VALUES ('documind', ?, 'ask', ?)")
         .bind(user.id, `doc:${doc.id}`)
         .run()
@@ -428,11 +433,11 @@ export default {
       // Remember the structured Q&A so /export pdf can re-render it (Pro perk).
       await env.KV.put(
         lastAnswerKey(user.id),
-        JSON.stringify({ docTitle: doc.title, question, answer } satisfies QaDoc),
+        JSON.stringify({ docTitle: doc.title, question, answer, sourcesLine: sources } satisfies QaDoc),
         { expirationTtl: 7 * 86400 },
       );
       const suffix = creditBalance !== null ? M("balance", { balance: creditBalance }) : "";
-      await bot.sendMessage(chatId, `${answer}${suffix}`);
+      await bot.sendMessage(chatId, `${answer}\n${sources}${suffix}`);
       return new Response("ok");
     }
 

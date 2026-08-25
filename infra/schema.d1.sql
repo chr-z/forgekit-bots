@@ -62,6 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_dm_docs_user ON dm_docs(tg_user_id, created_at);
 CREATE TABLE IF NOT EXISTS dm_chunks (
   doc_id INTEGER NOT NULL REFERENCES dm_docs(id) ON DELETE CASCADE,
   n      INTEGER NOT NULL,
+  page   INTEGER NOT NULL DEFAULT 1,          -- source page (content stream)
   text   TEXT NOT NULL,
   PRIMARY KEY (doc_id, n)
 );

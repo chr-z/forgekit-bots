@@ -7,7 +7,7 @@ import {
   QUOTA_WINDOW_DAYS,
 } from "./index";
 import { fulfillSuccessfulPayment } from "@forgekit/stars";
-import { buildDocxBytes, buildPdfBytes, makeCaptureFetch, makeDocD1 } from "./testhelpers";
+import { buildDocxBytes, buildPdfBytes, buildTwoPagePdfBytes, makeCaptureFetch, makeDocD1 } from "./testhelpers";
 
 const USER = { id: 777, is_bot: false, language_code: "pt-BR" };
 const CHAT = { id: 42, type: "private" };
@@ -227,5 +227,24 @@ describe("ask flow", () => {
   it("/ask without any document replies honestly", async () => {
     await worker.fetch(webhook(cmdUpdate(25, "/ask qualquer coisa")), env() as never);
     expect(sent.at(-1)).toContain("Me manda um documento");
+  });
+
+  it("answers cite the real source page of a two-page PDF", async () => {
+    const bytes = await buildTwoPagePdfBytes();
+    globalThis.fetch = makeCaptureFetch({ sent, fileBytes: bytes }) as never;
+    await worker.fetch(webhook(docUpdate(41, "contrato2pg.pdf")), env() as never);
+    // Two content streams = two indexed pages.
+    expect(store.docs[0]!.n_pages).toBe(2);
+    const pages = new Set(store.chunks.map((c) => c.page));
+    expect(pages.has(1)).toBe(true);
+    expect(pages.has(2)).toBe(true);
+    // Page 1 holds the warranty clause — the answer must point at p.1.
+    aiOverride = makeAi("A garantia dura doze meses [1].");
+    sent.length = 0;
+    await worker.fetch(webhook(cmdUpdate(42, "/ask Qual é o prazo de garantia?")), env() as never);
+    const reply = sent.at(-1)!;
+    expect(reply).toContain("doze meses [1]");
+    expect(reply).toContain("Fontes: p. 1");
+    expect(reply).not.toContain("p. 2");
   });
 });

@@ -7,6 +7,7 @@ import {
   extractiveAnswer,
   qaMessages,
   retrieve,
+  sourcesLine,
   splitSentences,
 } from "./rag";
 
@@ -49,6 +50,14 @@ describe("chunkText / splitSentences", () => {
   it("buildIndex numbers chunks sequentially across pages", () => {
     const index = buildIndex(["Um. Dois. Três.", "Quatro."], 10);
     expect(index.map((c) => c.n)).toEqual([1, 2, 3]);
+    // Page provenance: chunks remember which page they came from.
+    expect(index.map((c) => c.page)).toEqual([1, 1, 2]);
+  });
+
+  it("buildIndex skips empty pages without shifting later page numbers", () => {
+    const index = buildIndex(["Primeiro trecho real.", "", "Trecho da página três."]);
+    expect(index.map((c) => c.n)).toEqual([1, 2]);
+    expect(index.find((c) => c.text.includes("página três"))!.page).toBe(3);
   });
 });
 
@@ -88,6 +97,30 @@ describe("qaMessages", () => {
     expect(msgs[0]!.content).toContain("[1]");
     expect(msgs[1]!.content).toContain("Question: Qual o prazo de garantia?");
     expect(DOCUMIND_MODEL).toMatch(/llama/);
+  });
+
+  it("shows the source page next to each passage so the model can cite it", () => {
+    const index = buildIndex(PASSAGES);
+    const msgs = qaMessages("Qual o prazo de garantia?", retrieve(index, "garantia"));
+    // PASSAGES[0] lives on page 1; the prompt must carry its page marker.
+    expect(msgs[1]!.content).toContain("[1] p.1");
+  });
+});
+
+describe("page-aware citations (roadmap: respostas citadas página a página)", () => {
+  it("extractive answers carry [n] p.<page> provenance", () => {
+    const index = buildIndex(PASSAGES);
+    const hits = retrieve(index, "multa rescisória");
+    // The multa passage is the SECOND page in the fixture.
+    const text = extractiveAnswer(hits);
+    expect(text).toMatch(/\[2\] p\.2 — /);
+    expect(sourcesLine(hits)).toBe("Fontes: p. 2");
+  });
+
+  it("sourcesLine dedupes and sorts pages ascending", () => {
+    expect(
+      sourcesLine([{ page: 7 }, { page: 2 }, { page: 7 }, { page: 12 }]),
+    ).toBe("Fontes: p. 2, 7, 12");
   });
 });
 

@@ -822,3 +822,12 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Fix próprio: gramática pt-BR connect_ok ('suas resumos' -> 'seus resumos'), 60407e5.
 - Vitest 280/280 (35 files) local + CI success na branch; PR #9 aberto, CI green, merge às 16:40Z (main @ 801d8b0, CI run 32873326056 success).
 - Roadmap ONDA 2 agora 100% fechado INCLUSIVE linha 36 (PDF/Notion). Deploy de produção segue bloqueado só pelo wrangler login interativo do dono.
+
+## Tick W2-PAGES (2026-08-25 ~17:55) — DocuMind citações com página real (roadmap: "respostas citadas página a página")
+- Gap identificado na auditoria linha a linha: chunks citavam só [n] global; dm_chunks não tinha página — a promessa central do roadmap não era entregue de verdade.
+- Schema: dm_chunks.page INTEGER NOT NULL DEFAULT 1 (CREATE TABLE IF NOT EXISTS mantém compat com deploys existentes; re-executar infra/schema.d1.sql é idempotente).
+- rag.ts: Chunk.page; buildIndex por página (páginas vazias puladas sem deslocar numeração); extractiveAnswer "[n] p.<page> —"; sourcesLine() dedupe+asc "Fontes: p. 1, 3"; qaMessages embute "p." no prompt do modelo.
+- index.ts /ask: SELECT n, page, text; resposta termina com Fontes:; KV lastqa guarda sourcesLine; /export pdf anexa a linha como bullet no PDF.
+- Copy EN+pt-BR do /start agora promete página ([1] p.2).
+- Testes +9 (280→285): buildIndex page provenance, skip de página vazia, prompt com p.1, extractive [2] p.2, sourcesLine dedupe/ordem, e2e PDF real de 2 content-streams (fixture novo) citando só p.1, export PDF inflado via DecompressionStream contendo "Fontes: p. 1".
+- Vitest 285/285 (35 files), tsc limpo; secrets só em vars; sem deploy (wrangler login interativo bloqueado, inalterado).
