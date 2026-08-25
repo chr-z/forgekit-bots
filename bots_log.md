@@ -637,3 +637,20 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   CI success no HEAD (run 32797378472). Commits pequenos por módulo no histórico.
 - Decisão: DÉCIMA OITAVA auditoria consecutiva confirmando diretiva 100% implementada. Nenhum código novo.
   Bloqueio real inalterado: deploy real exige wrangler login interativo do owner (cron não autentica).
+
+## Auditoria #21 — worker tick ONDA 2 (25/08 ~00:16) — diretiva reenviada, nada a construir
+- Diretiva: construir UM bot da ONDA 2 (SummarizeTube | DocuMind | VoiceClone) seguindo o padrão
+  do builder principal (apps/<nome>/, wrangler.toml bindings, handlers, Vitest min 8 asserts, CI).
+- Guardrail: pull --ff-only ok (origin/main = HEAD = 70d4347); suíte completa **201/201 verde**
+  (25 arquivos, 2.01s); tsc sem erros; CI success no HEAD (run 32801565773).
+- Os TRÊS bots da ONDA 2 já estão completos no main (desde e1cabea), item a item contra BOTS_ROADMAP.md:
+  * summarizetube: youtube.ts puro JS (ytInitialPlayerResponse + timedtext json3/XML, sem ffmpeg),
+    Workers AI p/ resumir; FREE_DAILY_LIMIT=3 testado; Pro 200 Stars/30d; 113 asserts.
+  * documind: pdf.ts TS-puro + ingest + rag (Vectorize evitado documentadamente — precisa de paid
+    plan na prática); free 2 docs/10 perguntas; fallback extractive citado; 102 asserts.
+  * voiceclone: escopo conservador (só canais onde o bot é admin), cron trigger só p/ retry queue
+    (nunca polling — webhook ativo + getUpdates = 409); FREE_TERMS=1 / Pro 20 termos; 103 asserts.
+- Todos com wrangler.toml bindings (AI/D1/KV onde aplicável) e cobertos pelo CI raiz
+  (vitest.workspace.mts). Mín. de 8 asserts por bot ultrapassado com folga (102-113 cada).
+- Decisão: DÉCIMA NONA auditoria consecutiva confirmando diretiva 100% implementada. Nenhum código novo.
+  Bloqueio real inalterado: deploy real exige wrangler login interativo do owner (cron não autentica).
