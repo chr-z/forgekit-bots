@@ -18,6 +18,7 @@ import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
+import { renderPdf, type PdfDoc } from "@forgekit/app-shared/pdf";
 import { parseUpdate } from "@forgekit/app-shared/updates";
 
 import { classifyAttachment, ingestDocument } from "./ingest";
@@ -57,6 +58,18 @@ export const FREE_DOC_LIMIT = 2;
 export const FREE_QUESTION_LIMIT = 10;
 export const QUOTA_WINDOW_DAYS = 30;
 
+/** KV key holding the last answered Q&A of a user (source for /export pdf). */
+export function lastAnswerKey(userId: number): string {
+  return `documind:lastqa:${userId}`;
+}
+
+/** Structured payload cached for the Pro PDF export. */
+export interface QaDoc {
+  docTitle: string;
+  question: string;
+  answer: string;
+}
+
 const MESSAGES = {
   en: {
     start:
@@ -84,6 +97,10 @@ const MESSAGES = {
       "Free limit reached ({limit} questions / {days} days).\nResets soon — or add 150 questions with /buy (1 credit each).",
     buy_intro:
       "DocuMind Pro: unlimited documents + 500 questions — {stars} Stars / 30 days.\nCredit pack: {pack_stars} Stars = 150 extra questions (never expires).",
+    export_pro_only:
+      "PDF export is a Pro feature. /buy to unlock unlimited documents, questions and PDF export.",
+    export_nothing: "No answered question yet — /ask something first, then /export pdf.",
+    export_failed: "Something broke while rendering the PDF. Nothing was charged.",
     pro_active: "DocuMind Pro active — unlimited documents and questions for 30 days. Thanks!",
     pack_active: "Payment confirmed — 150 extra questions added. Thanks!",
     balance: "\n\nCredit used — balance left: {balance}.",
@@ -114,6 +131,10 @@ const MESSAGES = {
       "Limite grátis atingido ({limit} perguntas / {days} dias).\nRenova em breve — ou adicione 150 perguntas com /buy (1 crédito cada).",
     buy_intro:
       "DocuMind Pro: documentos ilimitados + 500 perguntas — {stars} Stars / 30 dias.\nPacote: {pack_stars} Stars = 150 perguntas extras (não expira).",
+    export_pro_only:
+      "Exportar em PDF é recurso Pro. /buy libera documentos, perguntas e exportação ilimitados.",
+    export_nothing: "Nenhuma pergunta respondida ainda — manda um /ask antes, depois /export pdf.",
+    export_failed: "Algo quebrou ao gerar o PDF. Nada foi cobrado.",
     pro_active: "DocuMind Pro ativo — documentos e perguntas ilimitados por 30 dias. Valeu!",
     pack_active: "Pagamento confirmado — 150 perguntas extras adicionadas. Valeu!",
     balance: "\n\nCrédito usado — saldo restante: {balance}.",
@@ -266,6 +287,42 @@ export default {
       return new Response("ok");
     }
 
+    // /export pdf — Pro perk: re-render the last answered question as a PDF document.
+    if (command === "/export") {
+      const pro = await isPro(env.DB, user.id).catch(() => false);
+      if (!pro) {
+        await bot.sendMessage(chatId, M("export_pro_only"));
+        return new Response("ok");
+      }
+      const raw = args.trim().toLowerCase();
+      const kind = raw === "" ? "pdf" : raw.split(/\s+/)[0];
+      // Production KV.get(_, "json") parses server-side (null when malformed);
+      // mirrors how the RateLimiter reads its counters.
+      const qa = kind === "pdf" ? await env.KV.get<QaDoc>(lastAnswerKey(user.id), "json") : null;
+      if (!qa || typeof qa.question !== "string" || typeof qa.answer !== "string") {
+        await bot.sendMessage(chatId, M("export_nothing"));
+        return new Response("ok");
+      }
+      try {
+        const pdf: PdfDoc = {
+          title: qa.docTitle,
+          author: "DocuMind",
+          tldr: qa.question,
+          tldrLabel: "Question",
+          bullets: qa.answer.split("\n").map((l) => l.trim()).filter(Boolean),
+        };
+        const bytes = await renderPdf(pdf);
+        const safeTitle =
+          (qa.docTitle ?? "document").replace(/[^\p{L}\p{N} _-]/gu, "").trim().slice(0, 60) ||
+          "document";
+        await bot.sendDocument(chatId, `${safeTitle} - answers.pdf`, bytes);
+      } catch {
+        await bot.sendMessage(chatId, M("export_failed"));
+        return new Response("ok");
+      }
+      return new Response("ok");
+    }
+
     if (command === "/docs") {
       const rows = await env.DB.prepare(
         "SELECT id, title, n_pages, n_chunks FROM dm_docs WHERE tg_user_id = ? ORDER BY id DESC LIMIT 10",
@@ -368,6 +425,12 @@ export default {
         .bind(user.id, `doc:${doc.id}`)
         .run()
         .catch(() => null);
+      // Remember the structured Q&A so /export pdf can re-render it (Pro perk).
+      await env.KV.put(
+        lastAnswerKey(user.id),
+        JSON.stringify({ docTitle: doc.title, question, answer } satisfies QaDoc),
+        { expirationTtl: 7 * 86400 },
+      );
       const suffix = creditBalance !== null ? M("balance", { balance: creditBalance }) : "";
       await bot.sendMessage(chatId, `${answer}${suffix}`);
       return new Response("ok");
