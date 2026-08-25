@@ -1,5 +1,35 @@
 # Bots Log — registro de execução
 
+## Wave 2 Pro-increment tick #7 (25/08 ~08:00 UTC-3) — SummarizeTube /transcript SHIPPED via PR (245/245)
+- Guardrail cumprido: clone fresh de main @ 0872f8c, npm ci, suite 234/234 verde,
+  sem PRs abertos de outros workers no momento do tick (`gh pr list` vazio).
+- Gap da roadmap fechado: linha 35 do BOTS_ROADMAP.md promete "resumo estruturado
+  ... + transcrição" na entrega base — a transcrição limpa era calculada pelo
+  pipeline e descartada. ONDA 2 completa + este incremento = roadmap da wave em dia.
+- feat apps/summarizetube/src/transcript.ts: TranscriptDoc {title, author,
+  durationSeconds, languageCode, text}; renderTranscriptReply entrega inline até
+  3500 chars, acima disso corta preview em fronteira de parágrafo (+hint i18n com
+  contagem total); toPlainTextFile gera .txt com bloco de metadados;
+  renderTranscriptPdf reaproveita @forgekit/app-shared/pdf (tldr vazio => sem
+  rótulo; parágrafos viram blocos; truncamento de página já coberto pelo writer).
+- feat index.ts: pipeline agora retorna `transcript` junto do doc; /summarize
+  cacheia KV summarizetube:lasttranscript:<user> TTL 7d (mesma política do lastdoc);
+  handler /transcript [txt|pdf] com gating Pro, transcript_nothing p/ cache vazio/
+  corrompido, filename sanitizado igual /export, falha de entrega NÃO cobra nada.
+- i18n EN/pt-BR: transcript_pro_only / transcript_nothing / transcript_more ({chars}).
+- Testes novos (11): transcript.test.ts (5 — chave KV, inline completo c/ header,
+  preview em fronteira de parágrafo sem vazar bloco parcial, txt file c/ metadados,
+  PDF real inflado byte-a-byte conferindo WinAnsi) + transcript.webhook.test.ts
+  (6 via webhook — gate free sem tocar rede, cache vazio, inline curto, longo =>
+  preview + .txt inspecionando o multipart, /transcript pdf silencioso c/ header
+  %PDF-1.4, título hostil sanitizado).
+- Gotchas aplicados desta vez: inflate pulando o EOL após "stream" (skill);
+  re-export de transcriptDocKey no entrypoint pq o teste importa de ./index e o
+  vitest não pega conflito import/declaração que o tsc pega.
+- Guardrail: Vitest **245/245 verde** (32 arquivos), tsc limpo no app tocado,
+  CI tem que passar no PR antes do merge.
+- Bloqueio real INALTERADO: deploy de produção exige wrangler login interativo do dono.
+
 ## 2026-08-24 ~21:50 UTC-3 — Tick: auditoria ClipGrab serverless (#19)
 - Diretiva do dono re-verificada ponto a ponto contra main @ 29de7f3: NADA a construir.
   - Sem VM Oracle/Cobalt self-host em nenhum path ativo; resolvers TikTok+IG isolados
