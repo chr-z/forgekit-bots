@@ -18,6 +18,13 @@ import { RateLimiter } from "@forgekit/ratelimit";
 import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { renderPdf } from "./pdf";
 import {
+  notionParentKey,
+  notionTokenKey,
+  parseConnectArgs,
+  probeNotionToken,
+  pushToNotion,
+} from "./notion";
+import {
   renderTranscriptPdf,
   renderTranscriptReply,
   toPlainTextFile,
@@ -92,6 +99,13 @@ const MESSAGES = {
     transcript_pro_only: "The full transcript is a Pro feature. /buy to unlock unlimited summaries, deep mode and transcripts.",
     transcript_nothing: "No recent transcript to show — send me a YouTube link first.",
     transcript_more: "(+{chars} characters total) — sending the rest as a file…",
+    connect_pro_only: "Notion export is a Pro feature. /buy to unlock it.",
+    connect_ok: "Connected to Notion ({name}). Your summaries can now be exported with /export notion.",
+    connect_invalid: "That doesn't look like a valid token + page link pair. Format: /connect <integration-token> <notion-page-url>",
+    connect_rejected: "Notion rejected that token. Double-check the integration secret and try /connect again.",
+    notion_not_connected: "No Notion workspace linked yet. Send /connect <integration-token> <notion-page-url> first.",
+    notion_ok: "Pushed to Notion: {url}",
+    notion_push_failed: "Notion refused the export (access may have been revoked). Re-link with /connect and try again.",
   },
   "pt-BR": {
     start: "Me manda um link do YouTube que eu respondo com um resumo estruturado (TLDR + pontos-chave com timestamps).\n\nGrátis: 3 resumos/dia. /buy para ilimitado + modo profundo.",
@@ -109,6 +123,13 @@ const MESSAGES = {
     transcript_pro_only: "A transcrição completa é recurso Pro. /buy libera resumos ilimitados, modo profundo e transcrições.",
     transcript_nothing: "Sem transcrição recente — me manda um link do YouTube antes.",
     transcript_more: "(+{chars} caracteres no total) — mandando o resto como arquivo…",
+    connect_pro_only: "Exportar pro Notion é recurso Pro. /buy libera.",
+    connect_ok: "Conectado ao Notion ({name}). Agora suas resumos podem ir pro Notion com /export notion.",
+    connect_invalid: "Não parece um par token + link de página válido. Formato: /connect <token-da-integração> <url-da-página-no-notion>",
+    connect_rejected: "O Notion recusou esse token. Confere o secret da integração e tenta o /connect de novo.",
+    notion_not_connected: "Nenhum workspace do Notion conectado ainda. Manda /connect <token-da-integração> <url-da-página> primeiro.",
+    notion_ok: "Enviado pro Notion: {url}",
+    notion_push_failed: "O Notion recusou o export (o acesso pode ter sido revogado). Reconecta com /connect e tenta de novo.",
   },
 };
 
@@ -298,7 +319,36 @@ export default {
       return new Response("ok");
     }
 
-    // /export pdf — Pro perk: re-render the last summary of this chat as a PDF document.
+    // /connect <token> <page> — link a Notion integration (Pro perk).
+    // The token is validated against api.notion.com BEFORE anything is
+    // stored and is never echoed back in any reply.
+    if (command === "/connect") {
+      const pro = await isPro(env.DB, user.id);
+      if (!pro) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "connect_pro_only"));
+        return new Response("ok");
+      }
+      const parsed = parseConnectArgs(args);
+      if (!parsed) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "connect_invalid"));
+        return new Response("ok");
+      }
+      const probe = await probeNotionToken(parsed.token);
+      if (!probe.ok) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "connect_rejected"));
+        return new Response("ok");
+      }
+      await env.KV.put(notionTokenKey(user.id), parsed.token, { expirationTtl: 90 * 86400 });
+      await env.KV.put(notionParentKey(user.id), parsed.parentId, { expirationTtl: 90 * 86400 });
+      await bot.sendMessage(
+        chatId,
+        t(MESSAGES, locale, "connect_ok", { name: probe.name ?? "workspace" }),
+      );
+      return new Response("ok");
+    }
+
+    // /export [pdf|notion] — Pro perk. "pdf" re-renders the last summary as
+    // a PDF document; "notion" pushes it to the user's linked workspace.
     if (command === "/export") {
       const pro = await isPro(env.DB, user.id);
       if (!pro) {
@@ -308,7 +358,11 @@ export default {
       const raw = args.trim().toLowerCase();
       const kind = raw === "" ? "pdf" : raw.split(/\s+/)[0];
       const docJson = await env.KV.get(lastDocKey(user.id));
-      if (kind !== "pdf" || !docJson) {
+      if (!docJson) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "export_nothing"));
+        return new Response("ok");
+      }
+      if (kind !== "pdf" && kind !== "notion") {
         await bot.sendMessage(chatId, t(MESSAGES, locale, "export_nothing"));
         return new Response("ok");
       }
@@ -319,6 +373,33 @@ export default {
         await bot.sendMessage(chatId, t(MESSAGES, locale, "export_failed"));
         return new Response("ok");
       }
+
+      // Notion branch: push the summary into the user's linked workspace.
+      if (kind === "notion") {
+        const token = await env.KV.get(notionTokenKey(user.id));
+        const parentId = await env.KV.get(notionParentKey(user.id));
+        if (!token || !parentId) {
+          await bot.sendMessage(chatId, t(MESSAGES, locale, "notion_not_connected"));
+          return new Response("ok");
+        }
+        try {
+          const out = await pushToNotion(token, parentId, doc);
+          if (!out) {
+            // Token may have been revoked or the page unshared — never echo it.
+            await bot.sendMessage(chatId, t(MESSAGES, locale, "notion_push_failed"));
+            return new Response("ok");
+          }
+          await bot.sendMessage(
+            chatId,
+            t(MESSAGES, locale, "notion_ok", { url: out.url }),
+          );
+          return new Response("ok");
+        } catch {
+          await bot.sendMessage(chatId, t(MESSAGES, locale, "notion_push_failed"));
+          return new Response("ok");
+        }
+      }
+
       try {
         const bytes = await renderPdf(doc);
         const safeTitle =

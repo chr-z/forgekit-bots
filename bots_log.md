@@ -807,3 +807,11 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Guardrail: Vitest **234/234 verde** (30 arquivos), tsc limpo nos apps tocados
   (documind/shared/summarizetube), CI passou no PR antes do merge.
 - Bloqueio real INALTERADO: deploy de produção exige wrangler login interativo do dono.
+
+## Tick W2-ONDA2-Notion (2026-08-25 ~11:35) — SummarizeTube /export notion (linha 36 roadmap)
+- Gap identificado: roadmap prometia "PDF/Notion" — PDF já fechado (tick #5); zero menções Notion no repo.
+- Módulo: apps/summarizetube/src/notion.ts + notion.test.ts (8 asserts: page-id parse, args parse, children build, chunk >100, push-ok, erro 401, erro sem url, rede).
+- Handler: /connect + /export notion com gating Pro; token validado via api.notion.com/v1/users/me antes de gravar; nunca ecoado em reply; KV com TTL 90d; parent page id armazenado separadamente.
+- Webhook tests: 4 asserts — recusado free, rejeição token, sucesso com url, falha push sem vazamento; fetch roteado entre Telegram + Notion.
+- Vitest 280/280 (35 files); tsc apps/summarizetube limpo; secrets só em vars; no deploy (wrangler login interativo bloqueado).
+- README do app atualizado (linha Notion export); BOTS_ROADMAP.md linha 36 confirmada fechada.
