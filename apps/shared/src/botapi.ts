@@ -68,6 +68,28 @@ export class BotApi {
     return this.call("sendMessage", { chat_id: chatId, text });
   }
 
+  /**
+   * Send a binary file (multipart/form-data — the JSON call path cannot carry bytes).
+   * `data` must be latin-1-safe bytes; `filename` is what the user sees in Telegram.
+   */
+  async sendDocument(
+    chatId: number,
+    filename: string,
+    data: Uint8Array,
+    caption?: string,
+  ): Promise<unknown> {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    if (caption) form.append("caption", caption);
+    form.append("document", new Blob([data], { type: "application/pdf" }), filename);
+    const res = await fetch(`${API}/bot${this.token}/sendDocument`, { method: "POST", body: form });
+    const json = (await res.json()) as ApiResponse<unknown>;
+    if (!json.ok || json.result === undefined) {
+      throw new Error(`BotApi sendDocument failed: ${json.description ?? res.status}`);
+    }
+    return json.result;
+  }
+
   async answerPreCheckoutQuery(id: string, ok: boolean, errorMessage?: string): Promise<unknown> {
     return this.call("answerPreCheckoutQuery", {
       pre_checkout_query_id: id,
