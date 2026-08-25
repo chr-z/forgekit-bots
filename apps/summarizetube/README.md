@@ -16,6 +16,11 @@ with `[mm:ss]` timestamps and the cleaned-up transcript.
    the summary carries a `[mm:ss]` citation resolved against the real cue
    timeline. **Deep mode** (Pro) runs more chunks per video for longer,
    denser summaries.
+4. **`/transcript` (Pro)** — the cleaned transcript is cached alongside the
+   summary and can be re-delivered at any time within 7 days: fully inline
+   when it fits a message, otherwise a paragraph-boundary preview plus a
+   `.txt` file; `/transcript pdf` renders a real PDF through the shared
+   writer (`@forgekit/app-shared/pdf`).
 
 Free-tier discipline by construction: caption fetch is one GET to
 youtube.com plus one to the timedtext endpoint; AI runs only on captions.
@@ -36,6 +41,7 @@ Failures never charge anything.
 |---|---|---|
 | Summaries | 3 / day | unlimited |
 | Mode | short | deep (more chunks per video) |
+| Transcript | — | `/transcript` (inline, `.txt` or PDF) |
 
 - **Pro:** 200 Stars / 30 days — unlimited + deep mode + priority queue.
 - **Credit pack:** 150 Stars for 100 extra summaries (never expires).

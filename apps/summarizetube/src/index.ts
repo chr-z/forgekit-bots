@@ -17,6 +17,14 @@ import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
 import { renderPdf } from "./pdf";
+import {
+  renderTranscriptPdf,
+  renderTranscriptReply,
+  toPlainTextFile,
+  transcriptDocKey,
+  TRANSCRIPT_INLINE_LIMIT,
+  type TranscriptDoc,
+} from "./transcript";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { extractUrl, parseUpdate } from "@forgekit/app-shared/updates";
 
@@ -81,6 +89,9 @@ const MESSAGES = {
     export_pro_only: "PDF export is a Pro feature. /buy to unlock unlimited summaries, deep mode and PDF export.",
     export_nothing: "No recent summary to export — send me a YouTube link first.",
     export_failed: "Couldn't generate the PDF right now. Nothing was charged — try again in a minute.",
+    transcript_pro_only: "The full transcript is a Pro feature. /buy to unlock unlimited summaries, deep mode and transcripts.",
+    transcript_nothing: "No recent transcript to show — send me a YouTube link first.",
+    transcript_more: "(+{chars} characters total) — sending the rest as a file…",
   },
   "pt-BR": {
     start: "Me manda um link do YouTube que eu respondo com um resumo estruturado (TLDR + pontos-chave com timestamps).\n\nGrátis: 3 resumos/dia. /buy para ilimitado + modo profundo.",
@@ -95,6 +106,9 @@ const MESSAGES = {
     export_pro_only: "Exportar PDF é recurso Pro. /buy libera resumos ilimitados, modo profundo e PDF.",
     export_nothing: "Sem resumo recente pra exportar — me manda um link do YouTube antes.",
     export_failed: "Não consegui gerar o PDF agora. Nada foi cobrado — tenta de novo em um minuto.",
+    transcript_pro_only: "A transcrição completa é recurso Pro. /buy libera resumos ilimitados, modo profundo e transcrições.",
+    transcript_nothing: "Sem transcrição recente — me manda um link do YouTube antes.",
+    transcript_more: "(+{chars} caracteres no total) — mandando o resto como arquivo…",
   },
 };
 
@@ -111,6 +125,9 @@ export function lastDocKey(userId: number): string {
   return `summarizetube:lastdoc:${userId}`;
 }
 
+/** Re-exported so webhook tests can build the key from the app entrypoint. */
+export { transcriptDocKey } from "./transcript";
+
 interface PipelineInput {
   videoId: string;
   deep: boolean;
@@ -122,6 +139,8 @@ interface PipelineOutput {
   reason?: "no_captions" | "failed";
   /** Structured summary payload for the Pro PDF export. */
   doc?: SummaryDoc;
+  /** Cleaned transcript payload for the Pro /transcript command. */
+  transcript?: TranscriptDoc;
 }
 
 /** Everything renderPdf needs — decoupled from the Telegram reply string. */
@@ -213,6 +232,13 @@ export async function runSummaryPipeline(
       durationSeconds: videoMeta.durationSeconds,
       tldr: summary.tldr,
       bullets: [...summary.bullets],
+    },
+    transcript: {
+      title: videoMeta.title,
+      author: videoMeta.author,
+      durationSeconds: videoMeta.durationSeconds,
+      languageCode: track.languageCode,
+      text: transcript,
     },
   };
 }
@@ -306,6 +332,59 @@ export default {
       return new Response("ok");
     }
 
+    // /transcript [txt|pdf] — Pro perk: deliver the cleaned transcript of
+    // the last summarized video. Short texts go inline; long ones get a
+    // paragraph-boundary preview plus a .txt document. "pdf" renders a real PDF.
+    if (command === "/transcript") {
+      const pro = await isPro(env.DB, user.id);
+      if (!pro) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "transcript_pro_only"));
+        return new Response("ok");
+      }
+      const kind = args.trim().toLowerCase().split(/\s+/)[0] ?? "";
+      const docJson = await env.KV.get(transcriptDocKey(user.id));
+      if (!docJson) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "transcript_nothing"));
+        return new Response("ok");
+      }
+      let doc: TranscriptDoc;
+      try {
+        doc = JSON.parse(docJson) as TranscriptDoc;
+      } catch {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "transcript_nothing"));
+        return new Response("ok");
+      }
+      const safeTitle =
+        (doc.title ?? "transcript").replace(/[^\p{L}\p{N} _-]/gu, "").trim().slice(0, 60) ||
+        "transcript";
+      try {
+        if (kind === "pdf") {
+          const bytes = await renderTranscriptPdf(doc);
+          await bot.sendDocument(chatId, `${safeTitle} - transcript.pdf`, bytes);
+          return new Response("ok");
+        }
+        const { reply, truncated } = renderTranscriptReply(doc, {
+          moreHint: t(MESSAGES, locale, "transcript_more"),
+          inlineLimit: TRANSCRIPT_INLINE_LIMIT,
+        });
+        if (!truncated) {
+          await bot.sendMessage(chatId, reply);
+          return new Response("ok");
+        }
+        await bot.sendMessage(chatId, reply);
+        const txt = toPlainTextFile(doc);
+        await bot.sendDocument(
+          chatId,
+          `${safeTitle}.txt`,
+          new TextEncoder().encode(txt),
+        );
+      } catch {
+        // Same honesty contract as /export: a delivery failure charges nothing.
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "export_failed"));
+      }
+      return new Response("ok");
+    }
+
     if (command === "/summarize" || command === "/s") {
       const url = extractUrl(args);
       const videoId = url ? parseVideoId(url.toString()) : null;
@@ -361,6 +440,12 @@ export default {
       // Remember the structured doc so /export pdf can re-render it (Pro perk).
       if (result.doc) {
         await env.KV.put(lastDocKey(user.id), JSON.stringify(result.doc), { expirationTtl: 7 * 86400 });
+      }
+      // Remember the transcript so /transcript can re-deliver it (Pro perk).
+      if (result.transcript) {
+        await env.KV.put(transcriptDocKey(user.id), JSON.stringify(result.transcript), {
+          expirationTtl: 7 * 86400,
+        });
       }
       return new Response("ok");
     }
