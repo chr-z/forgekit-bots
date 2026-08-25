@@ -673,3 +673,23 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   verde (25 arquivos); tsc -p tsconfig.base.json --noEmit limpo; CI success no HEAD (run 32804869347).
 - Decisão: nenhuma mudança de código necessária. Bloqueio real inalterado: deploy real exige
   wrangler login interativo do owner (cron não autentica).
+
+## ONDA 2 build — VoiceClone alert history (25/08 ~02:00 UTC-3) — PR #4 merged (e148325)
+- Guardrail: suite 201/201 verde no main pré-tick; auditoria item a item dos 3 apps da onda
+  (SummarizeTube, DocuMind, VoiceClone) contra BOTS_ROADMAP.md: código completo, Stars end-to-end,
+  limites = roadmap. ÚNICO gap real da onda: "histórico" prometido no Pro do VoiceClone (linha 48)
+  não existia em código nem no schema.
+- Construído (d7b20da):
+  * infra/schema.d1.sql: tabela vc_alerts (+ idx owner/id).
+  * store.ts: recordAlert / listAlertHistory / clearAlertHistory / pruneAlertHistory.
+  * index.ts: snapshot best-effort por alerta disparado (nunca bloqueia entrega; try/catch próprio),
+    retenção 200 linhas Pro / cauda 5 free, podada pós-insert; comandos /history <página> (Pro-gated,
+    free recebe contagem+upsell; newest-first, 10/pág com termos·canal·timestamp·outcome·trecho) e
+    /clearhistory; renderHistoryPage puro com cap 4096 chars; i18n en+pt-BR alinhado (4 chaves novas).
+  * getPro(ownerId) lazy no handleChannelPost — channel_post ctx não tem user; dono só é conhecido
+    após lookup do canal (channel_post updates NÃO carregam o autor do post).
+  * testhelpers: fake D1 estendido p/ vc_alerts (insert/prune/clear/select newest-first).
+- Testes: history.test.ts +11 asserts (record/outcome retry=0/no-match/poda/gate Pro/listagem/
+  paginação 2-2/vazio/clear isolado/cap 4096/i18n). Suíte completa 212/212 (26 arquivos),
+  tsc -p tsconfig.base.json --noEmit limpo, CI pass no PR #4 antes do merge.
+- Bloqueio inalterado: deploy exige wrangler login interativo do owner.
