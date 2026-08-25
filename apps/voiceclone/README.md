@@ -15,6 +15,12 @@ owner locked in BOTS_ROADMAP.md.
 4. Every new channel post arrives as a `channel_post` webhook update → pure-TS
    matcher (accent/case-insensitive, whole-word) → the owner gets a DM with
    matched terms + post excerpt.
+5. Every fired alert is snapshotted into D1 (`vc_alerts`): `/history <page>`
+   (Pro, R$9/mo roadmap "histórico") lists them newest-first with matched
+   terms, channel, timestamp, delivery outcome and a post excerpt — 10 per
+   page. Retention: Pro keeps 200 rows/user, free keeps a tail of 5 (so an
+   upgrade instantly surfaces recent alerts); pruning runs after every insert.
+   `/clearhistory` wipes the caller's rows.
 
 ## Why webhook, not cron polling
 
@@ -40,6 +46,7 @@ failed (TTL 24h, max 20/tick).
 Matcher normalization/whole-word/accent folding, channel-arg parsing, store
 upsert/delete/count semantics (D1 stub), limits per plan/pack, dedupe of
 redelivered posts, alert queue TTL/drain behavior, payment fulfillment,
+alert-history record/prune/page/clear (Pro gating + retention caps),
 i18n alignment — see `src/*.test.ts`.
 
 ## Deploy

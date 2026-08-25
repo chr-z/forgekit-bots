@@ -89,3 +89,21 @@ CREATE TABLE IF NOT EXISTS vc_terms (
   UNIQUE (chat_id, term)
 );
 CREATE INDEX IF NOT EXISTS idx_vc_terms_chat ON vc_terms(chat_id);
+
+-- VoiceClone Alerts: alert history (Pro feature, roadmap "histórico").
+-- One row per fired alert: matched terms + post excerpt + delivery outcome.
+-- owner_id is the subscriber's tg_user_id (DM target), chat_id the watched
+-- channel. Retention: capped per user by HISTORY_MAX_ROWS pruning; free
+-- users get no /history command but their rows are still recorded (cheap)
+-- and pruned to 5 so an upgrade instantly surfaces recent alerts.
+CREATE TABLE IF NOT EXISTS vc_alerts (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_id   INTEGER NOT NULL REFERENCES users(tg_user_id),
+  chat_id    INTEGER NOT NULL REFERENCES vc_channels(chat_id) ON DELETE CASCADE,
+  title      TEXT NOT NULL DEFAULT '',
+  terms      TEXT NOT NULL DEFAULT '',
+  excerpt    TEXT NOT NULL DEFAULT '',
+  delivered  INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_vc_alerts_owner ON vc_alerts(owner_id, id);

@@ -3,6 +3,16 @@
  * Modeled on apps/documind/src/testhelpers.ts conventions.
  */
 
+export interface VcAlertRow {
+  id: number;
+  owner_id: number;
+  chat_id: number;
+  title: string;
+  terms: string;
+  excerpt: string;
+  delivered: number;
+}
+
 export interface VcStore {
   db: unknown; // D1Database-shaped
   channels: Map<number, { chat_id: number; owner_id: number; title: string }>;
@@ -11,6 +21,8 @@ export interface VcStore {
   subs: Map<number, string>;
   balances: Map<number, number>;
   charges: Set<string>;
+  /** vc_alerts rows (history feature), insertion order = ascending id. */
+  alerts: VcAlertRow[];
 }
 
 /** D1 stub covering every statement store.ts + stars/credits issue. */
@@ -21,6 +33,8 @@ export function makeVcD1(): VcStore {
   const subs = new Map<number, string>();
   const balances = new Map<number, number>();
   const charges = new Set<string>();
+  let alertSeq = 0;
+  const alerts: VcAlertRow[] = [];
 
   function prepare(sql: string) {
     let args: unknown[] = [];
@@ -85,6 +99,43 @@ export function makeVcD1(): VcStore {
         if (sql.startsWith("INSERT INTO credit_events")) {
           return { meta: {} }; // ledger row; cached column below mirrors delta
         }
+        if (sql.startsWith("INSERT INTO vc_alerts")) {
+          const [ownerId, chatId, title, terms, excerpt, delivered] = args as [
+            number,
+            number,
+            string,
+            string,
+            string,
+            number,
+          ];
+          alerts.push({
+            id: ++alertSeq,
+            owner_id: ownerId,
+            chat_id: chatId,
+            title,
+            terms,
+            excerpt,
+            delivered,
+          });
+          return { meta: { changes: 1 } };
+        }
+        if (sql.startsWith("DELETE FROM vc_alerts WHERE owner_id = ? AND id NOT IN")) {
+          const [ownerId, , keep] = args as [number, number, number];
+          const mine = alerts.filter((a) => a.owner_id === ownerId);
+          const drop = new Set(mine.slice(0, Math.max(0, mine.length - keep)).map((a) => a.id));
+          for (let i = alerts.length - 1; i >= 0; i -= 1) {
+            if (drop.has(alerts[i]!.id)) alerts.splice(i, 1);
+          }
+          return { meta: { changes: drop.size } };
+        }
+        if (sql.startsWith("DELETE FROM vc_alerts WHERE owner_id = ?")) {
+          const ownerId = args[0] as number;
+          const before = alerts.length;
+          for (let i = alerts.length - 1; i >= 0; i -= 1) {
+            if (alerts[i]!.owner_id === ownerId) alerts.splice(i, 1);
+          }
+          return { meta: { changes: before - alerts.length } };
+        }
         if (sql.startsWith("UPDATE users SET balance")) {
           const [amount, userId] = args as [number, number];
           balances.set(userId, (balances.get(userId) ?? 0) + amount);
@@ -107,6 +158,10 @@ export function makeVcD1(): VcStore {
         if (sql.startsWith("SELECT COUNT(*) AS n FROM vc_terms")) {
           return { n: terms.get(args[0] as number)?.length ?? 0 } as T | null;
         }
+        if (sql.startsWith("SELECT COUNT(*) AS n FROM vc_alerts")) {
+          const ownerId = args[0] as number;
+          return { n: alerts.filter((a) => a.owner_id === ownerId).length } as T | null;
+        }
         throw new Error(`unexpected first(): ${sql}`);
       },
       async all<T>(): Promise<{ results: T[] }> {
@@ -128,6 +183,18 @@ export function makeVcD1(): VcStore {
           }
           return { results: rows };
         }
+        if (sql.includes("FROM vc_alerts")) {
+          const ownerId = args[0] as number;
+          const limit = (args[1] as number) ?? 10;
+          const offset = (args[2] as number) ?? 0;
+          const mine = alerts
+            .filter((a) => a.owner_id === ownerId)
+            .slice()
+            .reverse() // newest first
+            .slice(offset, offset + limit)
+            .map((r) => ({ ...r, created_at: "2026-08-25 00:00:00" }));
+          return { results: mine as T[] };
+        }
         throw new Error(`unexpected all(): ${sql}`);
       },
     };
@@ -142,6 +209,7 @@ export function makeVcD1(): VcStore {
     subs,
     balances,
     charges,
+    alerts,
   };
 }
 
