@@ -7,7 +7,7 @@ Fleet of serverless **Telegram bots** on the Cloudflare Workers free tier — ze
 | [TranscribeForge](apps/transcribeforge/) | Audio/video → text transcript + SRT/VTT subtitles (Workers AI Whisper) | core ready |
 | [ClipGrab](apps/clipgrab/) | TikTok & Instagram public-content download links (direct-link replies) | core ready |
 | [InstaToolkit](apps/instatoolkit/) | Instagram utilities: public profile snapshot, hashtag generator | core ready |
-| [SummarizeTube](apps/summarizetube/) | YouTube link → structured summary (TLDR + key points with timestamps) via caption extraction + Workers AI; `/export pdf` (PDF) + `/export notion` (Notion child page with token validated at link-time, never echoed) and `/transcript` re-delivers the cleaned transcript (inline, `.txt` or PDF) — both Pro | core ready |
+| [SummarizeTube](apps/summarizetube/) | YouTube link → structured summary (TLDR + key points with timestamps) via caption extraction + Workers AI, plus a 📚 topics/chapters section (creator description chapters for everyone; AI table-of-contents in deep mode); `/export pdf` (PDF) + `/export notion` (Notion child page with token validated at link-time, never echoed) and `/transcript` re-delivers the cleaned transcript (inline, `.txt` or PDF) — Pro | core ready |
 | [DocuMind](apps/documind/) | PDF/**DOCX**/text → cited Q&A ("ChatGPT dos seus documentos"): pure-TS extraction (incl. OOXML zip reader) + passage retrieval + Workers AI; `/export pdf` re-sends the last answer as a real PDF (Pro) | core ready |
 | [VoiceClone Alerts](apps/voiceclone/) | Keyword alerts for channels where the bot is admin: webhook-driven `channel_post` scan + accent-insensitive matcher + retry queue | core ready |
 
