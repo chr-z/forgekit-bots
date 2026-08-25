@@ -8,6 +8,7 @@
  * nothing is persisted unless extraction yields usable text.
  */
 
+import { extractDocxText } from "./docx";
 import { extractPdfText } from "./pdf";
 import { buildIndex } from "./rag";
 
@@ -41,12 +42,14 @@ export interface TgFileInfo {
 export function classifyAttachment(doc: {
   file_name?: string;
   mime_type?: string;
-}): { kind: "pdf" | "text" | null; title: string } {
+}): { kind: "pdf" | "docx" | "text" | null; title: string } {
   const name = (doc.file_name ?? "").trim();
   const lower = name.toLowerCase();
   const mime = (doc.mime_type ?? "").toLowerCase();
-  let kind: "pdf" | "text" | null = null;
+  let kind: "pdf" | "docx" | "text" | null = null;
   if (lower.endsWith(".pdf") || mime === "application/pdf") kind = "pdf";
+  else if (lower.endsWith(".docx") || mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    kind = "docx";
   else if (
     mime.startsWith("text/") ||
     /\.(txt|md|csv|log)$/.test(lower) ||
@@ -74,7 +77,7 @@ export async function ingestDocument(
   opts: {
     fileId: string;
     title: string;
-    kind: "pdf" | "text";
+    kind: "pdf" | "docx" | "text";
     userId: number;
     botToken: string;
   },
@@ -117,6 +120,18 @@ export async function ingestDocument(
       if (head !== "%PDF-") return { ok: false, reason: "unsupported_format" };
       const extracted = await extractPdfText(bytes, { decompress: deps.decompress });
       pageTexts = extracted.pages;
+    } else if (opts.kind === "docx") {
+      // OOXML containers: PK\x03\x04 magic, else honest unsupported (same
+      // anti-spoofing stance as the PDF magic check above).
+      const head = String.fromCharCode(...bytes.subarray(0, 2));
+      if (head !== "PK") return { ok: false, reason: "unsupported_format" };
+      try {
+        const extracted = await extractDocxText(bytes);
+        pageTexts = extracted.pages;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        return { ok: false, reason: msg === "no_text" ? "no_text" : "failed" };
+      }
     } else {
       const text = new TextDecoder().decode(bytes);
       pageTexts = text ? [text] : [];
