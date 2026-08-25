@@ -16,6 +16,7 @@ import { grantCredits, spendCredits } from "@forgekit/credits";
 import { parseLocale, t } from "@forgekit/i18n";
 import { RateLimiter } from "@forgekit/ratelimit";
 import { reviewPreCheckout, fulfillSuccessfulPayment, type StarProduct } from "@forgekit/stars";
+import { renderPdf } from "./pdf";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { extractUrl, parseUpdate } from "@forgekit/app-shared/updates";
 
@@ -77,6 +78,9 @@ const MESSAGES = {
     failed: "Couldn't process this video right now.\nYouTube changes things often — it's logged and will be fixed. Nothing was charged.",
     buy_intro: "SummarizeTube Pro: unlimited summaries + deep mode — {stars} Stars / 30 days.\nCredit pack: {pack_stars} Stars for 100 extra summaries (never expires).",
     balance: "\n\nCredit used — balance left: {balance}.",
+    export_pro_only: "PDF export is a Pro feature. /buy to unlock unlimited summaries, deep mode and PDF export.",
+    export_nothing: "No recent summary to export — send me a YouTube link first.",
+    export_failed: "Couldn't generate the PDF right now. Nothing was charged — try again in a minute.",
   },
   "pt-BR": {
     start: "Me manda um link do YouTube que eu respondo com um resumo estruturado (TLDR + pontos-chave com timestamps).\n\nGrátis: 3 resumos/dia. /buy para ilimitado + modo profundo.",
@@ -88,6 +92,9 @@ const MESSAGES = {
     failed: "Não consegui processar esse vídeo agora.\nO YouTube muda as coisas com frequência — está logado e será corrigido. Nada foi cobrado.",
     buy_intro: "SummarizeTube Pro: resumos ilimitados + modo profundo — {stars} Stars / 30 dias.\nPacote de créditos: {pack_stars} Stars por 100 resumos extras (não expira).",
     balance: "\n\nCrédito usado — saldo restante: {balance}.",
+    export_pro_only: "Exportar PDF é recurso Pro. /buy libera resumos ilimitados, modo profundo e PDF.",
+    export_nothing: "Sem resumo recente pra exportar — me manda um link do YouTube antes.",
+    export_failed: "Não consegui gerar o PDF agora. Nada foi cobrado — tenta de novo em um minuto.",
   },
 };
 
@@ -99,6 +106,11 @@ async function isPro(db: D1Database, userId: number): Promise<boolean> {
   return !!row?.pro_until && new Date(row.pro_until).getTime() > Date.now();
 }
 
+/** KV key holding the last summary doc of a user (source for /export pdf). */
+export function lastDocKey(userId: number): string {
+  return `summarizetube:lastdoc:${userId}`;
+}
+
 interface PipelineInput {
   videoId: string;
   deep: boolean;
@@ -108,6 +120,17 @@ interface PipelineOutput {
   ok: boolean;
   reply?: string;
   reason?: "no_captions" | "failed";
+  /** Structured summary payload for the Pro PDF export. */
+  doc?: SummaryDoc;
+}
+
+/** Everything renderPdf needs — decoupled from the Telegram reply string. */
+export interface SummaryDoc {
+  title?: string;
+  author?: string;
+  durationSeconds?: number;
+  tldr: string;
+  bullets: string[];
 }
 
 /**
@@ -172,20 +195,25 @@ export async function runSummaryPipeline(
   }
   summary = summary ?? extractiveFallback(indexText);
 
+  const videoMeta = {
+    title: playerResponse.videoDetails?.title,
+    author: playerResponse.videoDetails?.author,
+    durationSeconds: playerResponse.videoDetails?.lengthSeconds
+      ? parseInt(playerResponse.videoDetails.lengthSeconds, 10)
+      : undefined,
+    languageCode: track.languageCode,
+  };
+
   return {
     ok: true,
-    reply: renderSummary(
-      {
-        title: playerResponse.videoDetails?.title,
-        author: playerResponse.videoDetails?.author,
-        durationSeconds: playerResponse.videoDetails?.lengthSeconds
-          ? parseInt(playerResponse.videoDetails.lengthSeconds, 10)
-          : undefined,
-        languageCode: track.languageCode,
-      },
-      summary,
-      deep,
-    ),
+    reply: renderSummary(videoMeta, summary, deep),
+    doc: {
+      title: videoMeta.title,
+      author: videoMeta.author,
+      durationSeconds: videoMeta.durationSeconds,
+      tldr: summary.tldr,
+      bullets: [...summary.bullets],
+    },
   };
 }
 
@@ -244,6 +272,40 @@ export default {
       return new Response("ok");
     }
 
+    // /export pdf — Pro perk: re-render the last summary of this chat as a PDF document.
+    if (command === "/export") {
+      const pro = await isPro(env.DB, user.id);
+      if (!pro) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "export_pro_only"));
+        return new Response("ok");
+      }
+      const raw = args.trim().toLowerCase();
+      const kind = raw === "" ? "pdf" : raw.split(/\s+/)[0];
+      const docJson = await env.KV.get(lastDocKey(user.id));
+      if (kind !== "pdf" || !docJson) {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "export_nothing"));
+        return new Response("ok");
+      }
+      let doc: SummaryDoc;
+      try {
+        doc = JSON.parse(docJson) as SummaryDoc;
+      } catch {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "export_failed"));
+        return new Response("ok");
+      }
+      try {
+        const bytes = await renderPdf(doc);
+        const safeTitle =
+          (doc.title ?? "summary").replace(/[^\p{L}\p{N} _-]/gu, "").trim().slice(0, 60) ||
+          "summary";
+        await bot.sendDocument(chatId, `${safeTitle}.pdf`, bytes);
+      } catch {
+        await bot.sendMessage(chatId, t(MESSAGES, locale, "export_failed"));
+        return new Response("ok");
+      }
+      return new Response("ok");
+    }
+
     if (command === "/summarize" || command === "/s") {
       const url = extractUrl(args);
       const videoId = url ? parseVideoId(url.toString()) : null;
@@ -295,6 +357,11 @@ export default {
       const suffix =
         creditBalance !== null ? t(MESSAGES, locale, "balance", { balance: creditBalance }) : "";
       await bot.sendMessage(chatId, result.reply + suffix);
+
+      // Remember the structured doc so /export pdf can re-render it (Pro perk).
+      if (result.doc) {
+        await env.KV.put(lastDocKey(user.id), JSON.stringify(result.doc), { expirationTtl: 7 * 86400 });
+      }
       return new Response("ok");
     }
 
