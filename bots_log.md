@@ -718,3 +718,22 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
   (run 32828196826, 14s), merge --merge --delete-branch ok, main local = origin/main (b5bdac2).
 - README: linha do SummarizeTube atualizada com /export pdf (Pro).
 - Bloqueio real INALTERADO: deploy de produção exige wrangler login interativo do dono (cron não autentica).
+
+## Wave 2 build tick #4 (25/08 ~06:30) — DocuMind /export pdf SHIPPED via PR #6 (234/234)
+- Diretiva permanente re-verificada: ClipGrab serverless intocado; frota completa no main;
+  sem PRs abertos de outros workers no momento do tick (branches wave2-* são relíquias pré-merge).
+- Gap da roadmap fechado: DocuMind Pro "export" (linha 42 do BOTS_ROADMAP.md) não existia.
+- refactor (6736a85): writer PDF puro do SummarizeTube movido para @forgekit/app-shared/pdf
+  (subpath novo, campo opcional tldrLabel p/ domínios não-resumo, título default neutro
+  "Documento"); summarizetube mantém import path via shim re-export; +4 testes do módulo.
+- feat (8b8859c): /ask agora cacheia {docTitle, question, answer} em KV (TTL 7d);
+  /export [pdf] com gating Pro: re-renderiza a última pergunta respondida como PDF real
+  (rótulo "Question:", bullets = linhas da resposta com citações [n]), sendDocument com
+  filename sanitizado "<titulo> - answers.pdf"; i18n en/pt-BR (3 chaves novas); unknown
+  kind cai no reply export_nothing. KV.get(key,"json") espelha o contrato do RateLimiter.
+- Testes novos: export.test.ts (10 asserts via webhook — gate free, vazio, kind inválido,
+  happy path pelo fluxo REAL ingest->ask inspecionando o multipart, filename hostil,
+  i18n por locale) + capture-fetch estendido p/ sendDocument em testhelpers.
+- Guardrail: Vitest **234/234 verde** (30 arquivos), tsc limpo nos apps tocados
+  (documind/shared/summarizetube), CI passou no PR antes do merge.
+- Bloqueio real INALTERADO: deploy de produção exige wrangler login interativo do dono.
