@@ -16,6 +16,8 @@ let script: {
   failSendsTo?: Set<number>;
   botStatus?: string;
   chats?: Record<string, { id: number; type: string; title: string }>;
+  docs?: { chatId: number; name: string; caption?: string; body: ArrayBuffer }[];
+  failDocsTo?: Set<number>;
 };
 
 function env(): Record<string, unknown> {
@@ -59,7 +61,7 @@ function makePro(): void {
 beforeEach(() => {
   store = makeVcD1();
   kv = makeKv();
-  script = { sent: [], preCheckout: [] };
+  script = { sent: [], preCheckout: [], docs: [] };
   globalThis.fetch = makeTgFetch(script) as typeof fetch;
 });
 
@@ -184,3 +186,68 @@ describe("alert history (roadmap: Pro histórico)", () => {
   });
 });
 
+
+// ------------------------------------------------- /history pdf (Pro export)
+
+describe("/history pdf export (Pro)", () => {
+  it("is Pro-gated: free user gets the upsell and NO document", async () => {
+    await setupWatchedChannel();
+    await call(postUpdate(10, 500, "SORTEIO para o historico"));
+    await call(cmdUpdate(11, "/history pdf"));
+    const text = script.sent.at(-1)?.text ?? "";
+    expect(text).toContain("Pro");
+    expect(script.docs).toHaveLength(0);
+  });
+
+  it("pro user with no alerts gets the localized empty hint instead of a PDF", async () => {
+    makePro();
+    await call(cmdUpdate(10, "/history pdf"));
+    expect(script.sent.at(-1)?.text).toContain("exportar");
+    expect(script.docs).toHaveLength(0);
+  });
+
+  it("exports the alert page as a valid PDF with filename, caption and real header", async () => {
+    await setupWatchedChannel();
+    makePro();
+    await call(postUpdate(10, 500, "SORTEIO especial hoje!"));
+    await call(cmdUpdate(11, "/history pdf"));
+    expect(script.docs).toHaveLength(1);
+    const doc = script.docs![0]!;
+    expect(doc.chatId).toBe(CHAT.id);
+    expect(doc.name).toBe("voiceclone-history-p1.pdf");
+    expect(doc.caption).toContain("1 alerta(s)");
+    expect(doc.caption.length).toBeLessThanOrEqual(200);
+    const head = Buffer.from(new Uint8Array(doc.body).subarray(0, 16)).toString("latin1");
+    expect(head.startsWith("%PDF-1.4")).toBe(true);
+  });
+
+  it("parses '/history PDF' case-insensitively as a pdf request", async () => {
+    await setupWatchedChannel();
+    makePro();
+    await call(postUpdate(10, 500, "SORTEIO um"));
+    await call(postUpdate(11, 501, "outro SORTEIO aqui"));
+    await call(cmdUpdate(12, "/history PDF"));
+    expect(script.docs).toHaveLength(1);
+    expect(script.docs![0]!.name).toBe("voiceclone-history-p1.pdf");
+  });
+
+  it("falls back to a friendly message when the upload fails (no crash)", async () => {
+    await setupWatchedChannel();
+    makePro();
+    script.failDocsTo = new Set([CHAT.id]);
+    await call(postUpdate(10, 500, "SORTEIO para exportar"));
+    await call(cmdUpdate(11, "/history pdf"));
+    expect(script.docs).toHaveLength(0);
+    expect(script.sent.at(-1)?.text).toContain("gerar");
+  });
+
+  it("text mode untouched: plain /history still sends the paginated text", async () => {
+    await setupWatchedChannel();
+    makePro();
+    await call(postUpdate(10, 500, "SORTEIO numer um"));
+    await call(cmdUpdate(11, "/history"));
+    const text = script.sent.at(-1)?.text ?? "";
+    expect(text).toContain("(1/1)");
+    expect(script.docs).toHaveLength(0);
+  });
+});

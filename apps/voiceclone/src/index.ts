@@ -21,6 +21,7 @@ import { parseUpdate } from "@forgekit/app-shared/updates";
 
 import { matchTerms, parseChannelArg, normalizeText } from "./matcher";
 import { enqueueAlert, makeAlert, renderAlert, takeAlerts, type PendingAlert } from "./alerts";
+import { exportCaption, exportFileName, renderHistoryPdf } from "./exportpdf";
 import {
   addTerm,
   clearAlertHistory,
@@ -115,6 +116,10 @@ export const MESSAGES = {
     history_pro_only:
       "Alert history is a Pro feature — you have {n} recent alert(s) saved, upgrade with /buy to browse them all.",
     history_cleared: "History cleared ({n} rows removed).",
+    history_export_empty:
+      "Nothing to export yet — no alerts recorded. I save every alert here once your channels fire.",
+    history_export_failed:
+      "Couldn't generate the PDF right now. Try again in a minute.",
   },
   "pt-BR": {
     start:
@@ -153,6 +158,10 @@ export const MESSAGES = {
     history_pro_only:
       "Histórico é recurso Pro — você tem {n} alerta(s) recente(s) salvos, faz upgrade com /buy para ver todos.",
     history_cleared: "Histórico limpo ({n} registros removidos).",
+    history_export_empty:
+      "Nada pra exportar ainda — nenhum alerta registrado. Salvo cada alerta aqui quando seus canais dispararem.",
+    history_export_failed:
+      "Não consegui gerar o PDF agora. Tenta de novo em um minuto.",
   },
 };
 
@@ -565,13 +574,17 @@ export default {
       }
 
       if (command === "/history") {
-        const page = Math.max(1, parseInt(args, 10) || 1);
+        // `/history [page] pdf` exports the requested page as a PDF document
+        // behind the SAME Pro gate as the text history (free never reaches it).
+        const wantsPdf = /\bpdf\b/i.test(args);
+        const pageArg = wantsPdf ? args.replace(/\bpdf\b/i, "").trim() : args;
+        const page = Math.max(1, parseInt(pageArg, 10) || 1);
         if (!pro) {
           const { total } = await listAlertHistory(env.DB, user.id, 0, 0);
           await send("history_pro_only", { n: total });
           return new Response("ok");
         }
-        const pageSize = 10;
+        const pageSize = wantsPdf ? 20 : 10;
         const { rows, total } = await listAlertHistory(
           env.DB,
           user.id,
@@ -579,7 +592,21 @@ export default {
           (page - 1) * pageSize,
         );
         if (total === 0) {
-          await send("history_empty");
+          await send(wantsPdf ? "history_export_empty" : "history_empty");
+          return new Response("ok");
+        }
+        if (wantsPdf) {
+          try {
+            const bytes = await renderHistoryPdf(rows, page, total, user.language_code ?? "en");
+            await bot.sendDocument(
+              chatId,
+              exportFileName(page),
+              bytes,
+              exportCaption(total, user.language_code ?? "en"),
+            );
+          } catch {
+            await send("history_export_failed");
+          }
           return new Response("ok");
         }
         const pages = Math.max(1, Math.ceil(total / pageSize));
