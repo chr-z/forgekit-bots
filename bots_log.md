@@ -1,5 +1,15 @@
 # Bots Log — registro de execução
 
+## Wave 2 audit tick #14 (26/08 ~10:20 UTC-3) - guardrail + auditoria ONDA 2, nenhum bot novo
+- Guardrail cumprido: main @ 57d6612 (PR #15 mergeado as 10:27Z), suite local **321/321** (39 arquivos) verde + typecheck limpo antes de qualquer decisao.
+- Caça a orfaos: TODAS as 8 branches remotas conferidas via compare API - ahead_by=0 em todas; `gh pr list` vazio (15 PRs, todos MERGED); nenhuma branch local com trabalho nao-mergeado. Nada a resgatar.
+- Auditoria ONDA 2 vs BOTS_ROADMAP.md linha a linha: os 3 apps permanecem 100% cobertos. Limites conferidos no codigo: ST free 3/dia (FREE_DAILY_LIMIT) / Pro unlimited+deep+PDF+Notion+transcript; DM free 2 docs + 10 perguntas / Pro teto real de 500 perguntas (PRO_QUESTION_LIMIT); VC free 1 canal+1 termo / Pro 5 canais+20 termos + historico PDF.
+- Desvios documentados (intencionais): DocuMind usa keyword-RAG zero-custo no lugar de Vectorize (free tier do Vectorize exige plano pago - violaria o guardrail de custo zero); YouTube fora do ClipGrab por ToS do Cobalt publico. Ambos registrados nos comentarios do codigo e README.
+- Cron do VoiceClone ok (*/15 + handler scheduled p/ retry queue); timestamps [mm:ss] cobertos via indice honesto da transcricao + TOC em deep mode (tick #11).
+- Decisao: NENHUM bot novo construido - o escopo 'construa UM bot da ONDA 2' ja existe completo e iterado (PRs #1-#15). Bloqueios restantes sao INTERATIVOS do dono (wrangler login, BotFather, wiring vivo).
+- Guardrails: custo zero mantido; Stars-only intocado; nenhum segredo exposto; nenhum deploy.
+
+
 ## Wave 2 tick #13 (26/08 ~07:30 UTC-3) — SummarizeTube replay cache (neuron economy) via PR
 - Guardrail cumprido: main @ f4cd694, suite base 315/315 verde + tsc limpo antes
   do trabalho; `gh pr list` vazio; TODAS as branches remotas conferidas via
