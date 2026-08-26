@@ -59,6 +59,11 @@ marginal cost per question by construction.
 Pro: **300 Stars / 30 days** · Credit pack: **150 Stars = 150 questions**
 (never expires). Payments via Telegram Stars only.
 
+The 500-question Pro ceiling is **enforced**, not just advertised: past it,
+one credit still covers one question (the answer carries a "cota Pro
+atingida" notice), and a dry wallet gets an upsell reply instead of a silent
+charge — AI spend stays bounded either way.
+
 ## Commands
 
 - attach a `.pdf`/`.docx`/`.txt` file → indexes it
