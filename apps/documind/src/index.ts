@@ -57,6 +57,12 @@ export const DOCUMIND_CATALOG: StarProduct[] = [
 export const FREE_DOC_LIMIT = 2;
 export const FREE_QUESTION_LIMIT = 10;
 export const QUOTA_WINDOW_DAYS = 30;
+/**
+ * Roadmap line 42: Pro = "500 perguntas". Enforced as a real ceiling (not
+ * marketing copy): beyond it, one credit still covers one question, so a
+ * paying user is never hard-blocked while infra spend stays bounded.
+ */
+export const PRO_QUESTION_LIMIT = 500;
 
 /** KV key holding the last answered Q&A of a user (source for /export pdf). */
 export function lastAnswerKey(userId: number): string {
@@ -97,13 +103,17 @@ const MESSAGES = {
       "Free limit reached ({limit} documents / {days} days). Unlimited with Pro: /buy",
     quota_questions:
       "Free limit reached ({limit} questions / {days} days).\nResets soon — or add 150 questions with /buy (1 credit each).",
+    pro_quota:
+      "You've used all {limit} Pro questions this cycle. Add more with /buy — 150 questions for {pack_stars} Stars (never expires).",
+    pro_quota_notice:
+      "Pro allowance reached ({limit}) — this answer used 1 credit.\n\n",
     buy_intro:
       "DocuMind Pro: unlimited documents + 500 questions — {stars} Stars / 30 days.\nCredit pack: {pack_stars} Stars = 150 extra questions (never expires).",
     export_pro_only:
       "PDF export is a Pro feature. /buy to unlock unlimited documents, questions and PDF export.",
     export_nothing: "No answered question yet — /ask something first, then /export pdf.",
     export_failed: "Something broke while rendering the PDF. Nothing was charged.",
-    pro_active: "DocuMind Pro active — unlimited documents and questions for 30 days. Thanks!",
+    pro_active: "DocuMind Pro active — unlimited documents + 500 questions for 30 days. Thanks!",
     pack_active: "Payment confirmed — 150 extra questions added. Thanks!",
     balance: "\n\nCredit used — balance left: {balance}.",
   },
@@ -131,13 +141,17 @@ const MESSAGES = {
       "Limite grátis atingido ({limit} documentos / {days} dias). Ilimitado com Pro: /buy",
     quota_questions:
       "Limite grátis atingido ({limit} perguntas / {days} dias).\nRenova em breve — ou adicione 150 perguntas com /buy (1 crédito cada).",
+    pro_quota:
+      "Você usou as {limit} perguntas Pro do ciclo. Adicione mais com /buy — 150 perguntas por {pack_stars} Stars (não expira).",
+    pro_quota_notice:
+      "Cota Pro atingida ({limit}) — esta resposta usou 1 crédito.\n\n",
     buy_intro:
       "DocuMind Pro: documentos ilimitados + 500 perguntas — {stars} Stars / 30 dias.\nPacote: {pack_stars} Stars = 150 perguntas extras (não expira).",
     export_pro_only:
       "Exportar em PDF é recurso Pro. /buy libera documentos, perguntas e exportação ilimitados.",
     export_nothing: "Nenhuma pergunta respondida ainda — manda um /ask antes, depois /export pdf.",
     export_failed: "Algo quebrou ao gerar o PDF. Nada foi cobrado.",
-    pro_active: "DocuMind Pro ativo — documentos e perguntas ilimitados por 30 dias. Valeu!",
+    pro_active: "DocuMind Pro ativo — documentos ilimitados + 500 perguntas por 30 dias. Valeu!",
     pack_active: "Pagamento confirmado — 150 perguntas extras adicionadas. Valeu!",
     balance: "\n\nCrédito usado — saldo restante: {balance}.",
   },
@@ -409,19 +423,31 @@ export default {
         return new Response("ok");
       }
 
-      // Beyond the free window one credit covers one question.
+      // Beyond any quota window one credit covers one question (free & Pro).
       const limiter = new RateLimiter(env.KV, {
         freeLimit: FREE_QUESTION_LIMIT,
+        proLimit: pro ? PRO_QUESTION_LIMIT : undefined,
         windowSeconds: QUOTA_WINDOW_DAYS * 86400,
       });
       const gate = await limiter.consume("documind", `q:${user.id}`, pro);
       let creditBalance: number | null = null;
+      let ceilingNotice = "";
       if (!gate.allowed && !pro) {
         creditBalance = await spendCredits(env.DB, user.id, 1, `ask:${doc.id}`).catch(() => null);
         if (creditBalance === null) {
           await bot.sendMessage(chatId, M("quota_questions", { limit: FREE_QUESTION_LIMIT, days: QUOTA_WINDOW_DAYS }));
           return new Response("ok");
         }
+      }
+      if (!gate.allowed && pro) {
+        // Roadmap ceiling reached — credits keep the user unblocked (and
+        // the AI spend bounded). Same 1 credit = 1 question contract.
+        creditBalance = await spendCredits(env.DB, user.id, 1, `ask:${doc.id}`).catch(() => null);
+        if (creditBalance === null) {
+          await bot.sendMessage(chatId, M("pro_quota", { limit: PRO_QUESTION_LIMIT }));
+          return new Response("ok");
+        }
+        ceilingNotice = M("pro_quota_notice", { limit: PRO_QUESTION_LIMIT });
       }
 
       const { answer } = await answerQuestion(env.AI, DOCUMIND_MODEL, question, scored);
@@ -437,7 +463,7 @@ export default {
         { expirationTtl: 7 * 86400 },
       );
       const suffix = creditBalance !== null ? M("balance", { balance: creditBalance }) : "";
-      await bot.sendMessage(chatId, `${answer}\n${sources}${suffix}`);
+      await bot.sendMessage(chatId, `${ceilingNotice}${answer}\n${sources}${suffix}`);
       return new Response("ok");
     }
 
