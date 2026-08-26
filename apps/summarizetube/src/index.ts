@@ -32,6 +32,7 @@ import {
   TRANSCRIPT_INLINE_LIMIT,
   type TranscriptDoc,
 } from "./transcript";
+import { loadCachedSummary, saveCachedSummary } from "./cache";
 import { BotApi, type TgUpdate } from "@forgekit/app-shared/botapi";
 import { extractUrl, parseUpdate } from "@forgekit/app-shared/updates";
 
@@ -90,6 +91,7 @@ const MESSAGES = {
     start: "Send me a YouTube link and I'll reply with a structured summary (TLDR + key points with timestamps).\n\nFree: 3 summaries/day. /buy for unlimited + deep mode.",
     not_a_youtube_link: "That doesn't look like a YouTube link. Try https://youtu.be/... or a youtube.com/watch?v=... URL.",
     quota_exceeded: "Daily free limit reached ({limit}/day). Resets in {hours}h — or get unlimited with /buy.",
+    cached: "♻️ Cached summary (same video, no AI re-run):",
     payment_ok: "Payment confirmed — {amount} Stars received. Thanks!",
     working: "Watching the video… this can take a moment.",
     no_captions: "This video has no usable captions (neither manual nor auto-generated), so I can't summarize it honestly.",
@@ -114,6 +116,7 @@ const MESSAGES = {
     start: "Me manda um link do YouTube que eu respondo com um resumo estruturado (TLDR + pontos-chave com timestamps).\n\nGrátis: 3 resumos/dia. /buy para ilimitado + modo profundo.",
     not_a_youtube_link: "Isso não parece um link do YouTube. Tenta https://youtu.be/... ou uma URL youtube.com/watch?v=...",
     quota_exceeded: "Limite diário grátis atingido ({limit}/dia). Reseta em {hours}h — ou vire ilimitado com /buy.",
+    cached: "♻️ Resumo em cache (mesmo vídeo, sem rodar a IA de novo):",
     payment_ok: "Pagamento confirmado — {amount} Stars recebidos. Valeu!",
     working: "Assistindo ao vídeo… pode demorar um pouco.",
     no_captions: "Esse vídeo não tem legendas utilizáveis (nem manuais nem automáticas), então não dá pra resumir com honestidade.",
@@ -493,6 +496,28 @@ export default {
 
       const pro = await isPro(env.DB, user.id);
       const limiter = new RateLimiter(env.KV, { freeLimit: FREE_DAILY_LIMIT });
+
+      // Replay cache: the same video summarized again is served straight
+      // from KV — zero AI neurons, zero youtube fetches, one KV read.
+      // A replay carries NO new information (identical payload), so it
+      // consumes neither the daily window nor a credit pack.
+      const cached = await loadCachedSummary(env.KV, videoId);
+      if (cached) {
+        await bot.sendMessage(
+          chatId,
+          t(MESSAGES, locale, "cached") + "\n\n" + cached.reply,
+        );
+        if (pro) {
+          // Pro perks keep working over the cached payload: refresh both docs
+          // so /export pdf and /transcript have fresh material.
+          await env.KV.put(lastDocKey(user.id), JSON.stringify(cached.doc), { expirationTtl: 7 * 86400 });
+          await env.KV.put(transcriptDocKey(user.id), JSON.stringify(cached.transcript), {
+            expirationTtl: 7 * 86400,
+          });
+        }
+        return new Response("ok");
+      }
+
       const gate = await limiter.consume("summarizetube", `user:${user.id}`, pro);
 
       // Beyond the free daily window a credit-pack credit covers one summary.
@@ -536,8 +561,16 @@ export default {
       await bot.sendMessage(chatId, result.reply + suffix);
 
       // Remember the structured doc so /export pdf can re-render it (Pro perk).
-      if (result.doc) {
+      if (result.doc && result.transcript) {
         await env.KV.put(lastDocKey(user.id), JSON.stringify(result.doc), { expirationTtl: 7 * 86400 });
+        // Replay cache (shared across users): future /summarize of the SAME
+        // videoId is served from KV without re-running the AI pipeline.
+        await saveCachedSummary(env.KV, videoId, {
+          deep,
+          reply: result.reply,
+          doc: result.doc,
+          transcript: result.transcript,
+        });
       }
       // Remember the transcript so /transcript can re-deliver it (Pro perk).
       if (result.transcript) {
