@@ -34,7 +34,8 @@ credits ledger (D1), Stars payment handling (pre-checkout review + idempotent
 
 ```bash
 npm install
-npm test          # vitest across all workspaces
+npm test              # vitest across all workspaces
+npm run typecheck     # TSC gate — same as builder ticks run locally before push
 ```
 
 ## Deploy
