@@ -246,6 +246,10 @@ export interface TgScript {
   botStatus?: string;
   /** Chat directory for getChat, keyed by handle (no @, lowercase) or id string. */
   chats?: Record<string, { id: number; type: string; title: string }>;
+  /** Collected sendDocument payloads (in order) when present. */
+  docs?: { chatId: number; name: string; caption?: string; body: ArrayBuffer }[];
+  /** sendDocument calls toward these chat ids fail (export fallback path). */
+  failDocsTo?: Set<number>;
 }
 
 const R = (obj: unknown) => new Response(JSON.stringify(obj));
@@ -287,6 +291,21 @@ export function makeTgFetch(s: TgScript): typeof fetch {
       }
       s.sent.push({ chatId, text: String(body.text ?? "") });
       return R({ ok: true, result: { message_id: 1 } });
+    }
+    if (url.includes("/sendDocument")) {
+      const form = init?.body as FormData;
+      const file = form.get("document") as unknown as File;
+      const docChatId = Number(form.get("chat_id"));
+      if (s.failDocsTo?.has(docChatId)) {
+        return R({ ok: false, description: "doc send failed (scripted)" });
+      }
+      s.docs?.push({
+        chatId: docChatId,
+        name: file.name,
+        caption: String(form.get("caption") ?? ""),
+        body: await file.arrayBuffer(),
+      });
+      return R({ ok: true, result: { message_id: 2 } });
     }
     return R({ ok: false, description: `unscripted ${url}` });
   };
