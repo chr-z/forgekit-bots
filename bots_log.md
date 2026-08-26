@@ -868,3 +868,14 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - Estado final: ONDA 2 completa; todo PR agora roda typecheck antes do vitest (esbuild transpila sem checar tipos - buraco fechado).
 - Nenhum bot novo construído neste tick: não havia escopo faltante; o trabalho real era o resgate.
 - Guardrails: custo zero; sem deploy interativo; nenhum segredo exposto.
+
+
+## Tick W2-VC-PDF-RESCUE (2026-08-26 ~06h) - VoiceClone: /history pdf (export PDF do historico, Pro)
+- Guardrail ok (ONDA 1 verde na origin; sem worker vivo: mtimes locais 03:0x-03:37 vs agora ~06h).
+- Resgate de worker morto #2: trabalho SO NO DISCO, nunca commitado - exportpdf.ts + handler /history pdf + exportpdf.test.ts (sadios), porem tail e2e do index.test.ts CORROMPIDO no meio (sintaxe quebrada: "pdf describe(", it "..." sem parentes) E conceitualmente errado (fixtures coladas do SummarizeTube: kvMap/lastDocKey/d1Rows nao existem no voiceclone; caption assertada com "Pro" que nem existe na legenda deste bot).
+- Cirurgia: tail corrompido descartado (index.test.ts voltou identico ao main); e2e reescritos no idioma do repo dentro de history.test.ts; testhelpers ganhou captura docs + falha roteirizada failDocsTo.
+- Codigo do morto mantido e validado: mapping historyToPdfDoc (label Alertas/Alerts, marca retry, truncamento 80 chars), filename seguro voiceclone-history-pN.pdf, caption <=200; handler reusa o MESMO gate Pro do /history textual; historico vazio = dica localizada; falha de upload degrada pra mensagem amigavel; modo texto intocado (pageSize 10).
+- Testes: 5 unitarios (mapping/render/inflate %PDF-1.4) + 6 e2e (gate free, empty hint Pro, happy path com magic bytes, "pdf" case-insensitive, fallback de falha, regressao do texto) -> voiceclone 63/63, monorepo **315/315** (era 305), tsc --noEmit limpo.
+- Gotchas novos: (1) worker morto pode deixar teste corrompido E semanticamente errado - nao resgatar as asserts cegas, validar conceito contra o app real; (2) heredoc python com EOL literal em anchor quebra em arquivo CRLF - detectar EOL por arquivo e montar strings com ele; (3) meu proprio gerador deixou "}) + E;" literal no arquivo - sempre reler tail apos gerar bloco via script.
+- Ship: branch feature/vc-history-pdf-export (bd31163), push GCM-workaround, PR #14 CI success (~16s), merge -> **main @ feea93a**, check-runs main success. Branch remoto apagado pelo merge.
+- Guardrails: custo zero (sem deps novas); Stars-only intocado; deploy segue bloqueado so pelo wrangler login interativo do dono.
