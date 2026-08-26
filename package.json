@@ -9,6 +9,7 @@
     "apps/*"
   ],
   "scripts": {
+    "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
