@@ -1,5 +1,33 @@
 # Bots Log — registro de execução
 
+## Wave 2 tick #13 (26/08 ~07:30 UTC-3) — SummarizeTube replay cache (neuron economy) via PR
+- Guardrail cumprido: main @ f4cd694, suite base 315/315 verde + tsc limpo antes
+  do trabalho; `gh pr list` vazio; TODAS as branches remotas conferidas via
+  compare (8 branches, ahead_by=0 em todas — nada órfão, nada perdido).
+- Auditoria ONDA 2 vs BOTS_ROADMAP.md: os 3 apps seguem 100% cobertos
+  (comandos, perks Pro e preços conferidos linha a linha no código).
+- Incremento deste tick: cache de replay p/ resumos. Antes: re-resumir o MESMO
+  vídeo refazia watch-page + timedtext + todo o map-reduce da AI (neurônios
+  pagos de novo por payload idêntico). Agora: apps/summarizetube/src/cache.ts
+  grava {v, deep, reply, doc, transcript} em KV (TTL 7d) após pipeline ok; hit
+  devolve a resposta idêntica com selo "♻️ Resumo em cache" — zero AI, zero
+  youtube fetch, 1 leitura de KV. Replay NÃO consome janela free nem pacote de
+  créditos (payload idêntico não gera valor nem custo novo); requisições de
+  vídeos NOVOS continuam sujeitas ao limite 3/dia normalmente. Hit de usuário
+  Pro ainda refresca lastdoc/transcript docs (perks /export pdf e /transcript
+  continuam funcionando sobre payload cacheado).
+- Testes novos (cache.test.ts, 6): roundtrip KV + rejeição de lixo/versão;
+  1a rodada paga pipeline completo (AI=1, ytFetch=2) e grava cache; replay
+  com AI=0/ytFetch=0; replay ilimitado sem tocar rl:*; wall de quota intacto
+  pra vídeos frescos; pro-refresh dos dois docs sem nag de quota. Suite
+  315→321, tsc limpo.
+- Gotchas deste tick: (1) fake de KV DEVE parsear get(key,"json") também aqui —
+  probe mostrou used=NaN → tudo recusado quando o fake devolve string crua
+  (lição antiga da casa, revalidada na prática); (2) texto sem "/" não roteia
+  como comando no parseUpdate — testes precisam mandar "/s <url>"; (3) patch
+  multi-linha comeu bloco DB do fake (âncora compartilhada) — reler região
+  após cada patch, como manda a casa.
+
 ## Wave 2 Pro-increment tick #8 (25/08 ~11:15 UTC-3) — DocuMind DOCX ingest SHIPPED via PR (264/264)
 - Guardrail cumprido: worktree work_forgekit_w2 em feature/dm-docx, suite base
   verde antes do trabalho; sem PRs abertos (`gh pr list` vazio); nenhum worker
