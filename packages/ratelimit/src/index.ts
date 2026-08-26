@@ -13,6 +13,13 @@
 export interface RateLimitConfig {
   /** Maximum uses per window for free/anonymous users. */
   freeLimit: number;
+  /**
+   * Optional ceiling for EXEMPT (paying/Pro) users. When set, exempt
+   * consumes are still counted against this limit — the fleet's cost
+   * guardrail: "Pro" means a much bigger quota, never unbounded spend.
+   * Omit only when a bot genuinely has zero marginal cost per use.
+   */
+  proLimit?: number;
   /** Window length in seconds (default 86400 = daily). */
   windowSeconds?: number;
 }
@@ -66,7 +73,26 @@ export class RateLimiter {
   ): Promise<RateLimitResult> {
     const ws = this.config.windowSeconds ?? 86400;
     if (exempt) {
-      return { allowed: true, used: 0, limit: Infinity, resetAfter: 0 };
+      // No proLimit configured: truly unlimited (zero marginal cost bots).
+      if (this.config.proLimit === undefined) {
+        return { allowed: true, used: 0, limit: Infinity, resetAfter: 0 };
+      }
+      // Cost guardrail: exempt users still consume against the Pro ceiling,
+      // sharing the same window mechanics as the free path.
+      const proKey = this.key(bot, `${subject}:pro`);
+      const existing = await this.kv.get<WindowState>(proKey, "json");
+      const cur = existing ?? { window: nowWindow(ws), used: 0 };
+      const used = cur.used + 1;
+      await this.kv.put(proKey, JSON.stringify({ window: nowWindow(ws), used }), {
+        expirationTtl: ws + 60,
+      });
+      return {
+        allowed: used <= this.config.proLimit,
+        used,
+        limit: this.config.proLimit,
+        resetAfter:
+          ws - Math.floor((Date.now() / 1000) % ws),
+      };
     }
 
     const key = this.key(bot, subject);
