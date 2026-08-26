@@ -39,7 +39,6 @@
   `tsc -p tsconfig.base.json --noEmit` limpo; CI tem que passar no PR antes
   do merge.
 
-
 ## Wave 2 Pro-increment tick #7 (25/08 ~08:00 UTC-3) — SummarizeTube /transcript SHIPPED via PR (245/245)
 - Guardrail cumprido: clone fresh de main @ 0872f8c, npm ci, suite 234/234 verde,
   sem PRs abertos de outros workers no momento do tick (`gh pr list` vazio).
@@ -852,3 +851,20 @@ main já cumpre 100% do escopo; verificação ponto a ponto deste tick:
 - packages/ratelimit: RateLimitConfig.proLimit?: number — quando definido, consumes de isentos CONTAM contra o teto em janela própria (mesma mecânica fixed-window, chave `<subject>:pro`); sem proLimit, comportamento antigo (Infinity) preservado. Zero mudança de comportamento nos outros bots. +4 testes no pacote.
 - apps/documind: PRO_QUESTION_LIMIT=500; /ask injeta proLimit p/ Pro; teto estourado → 1 crédito = 1 pergunta (mesmo contrato do free) com aviso "Cota Pro atingida (500)" prefixado na resposta; carteira vazia → recusa pro_quota com upsell /buy e NENHUMA cobrança. pro_active/buy_intro agora prometem exatamente o que o código entrega. +4 testes e2e (proquota.test.ts): sob o teto = resposta normal sem débito; no teto seco = upsell sem débito; além do teto = resposta + aviso + débito exato de 1; recusa localizada EN.
 - Guardrail: Vitest **305/305** verde (37 arquivos, 297→305); tsc limpo (packages/ratelimit, apps/documind); secrets só em vars; deploy segue bloqueado só pelo wrangler login interativo do dono (inalterado).
+
+## Tick W2-CI-GATE (2026-08-26) — CI typecheck gate
+- Gap: CI rodava só vitest (esbuild transpila sem checar tipos); erro de tipo atravessaria.
+- package.json: npm run typecheck (tsc --noEmit)
+- .github/workflows/ci.yml: typecheck antes de test
+- README.md: documentado
+- Branch: ci-typecheck-gate (commit a4ec5e8); push deste tick NUNCA completou (worker morreu antes) - resgatado no tick seguinte via PR #13
+- Suíte local: 305/305 vitest + tsc --noEmit limpo. Nenhum bot novo construído (ONDA 2 já completa dos ticks anteriores); hardening de infra.
+- Guardrails: custo zero mantido; nenhum deploy interativo; nenhum segredo exposto.
+
+## Tick W2-CIGATE-RESCUE (2026-08-26 ~02h) - resgate do branch órfão ci-typecheck-gate
+- Guardrail da ONDA 2 primeiro: roadmap 100% coberto (SummarizeTube/DocuMind/VoiceClone já completos). Mas o clone work_forgekit_w2 tinha um branch LOCAL `ci-typecheck-gate` (a4ec5e8, 00:53) nunca pushado, sem PR e sem CI - o worker anterior morreu no meio do push ("push em andamento"). Lição da Skill aplicada: trabalho pode existir só no disco.
+- Validação ANTES do push: probe `git archive a4ec5e8` + junction node_modules -> vitest 305/305 verde, tsc --noEmit limpo (o probe tambem exercitou o proprio gate novo).
+- Resgate: branch pushado, PR #13 aberto, CI success (14s), merge -> **main @ 9ee659b**. Branch remoto apagado apos merge.
+- Estado final: ONDA 2 completa; todo PR agora roda typecheck antes do vitest (esbuild transpila sem checar tipos - buraco fechado).
+- Nenhum bot novo construído neste tick: não havia escopo faltante; o trabalho real era o resgate.
+- Guardrails: custo zero; sem deploy interativo; nenhum segredo exposto.
